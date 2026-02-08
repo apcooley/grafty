@@ -439,9 +439,24 @@ def check(patch_file: str, repo_root: str) -> None:
 @click.option("--backup", is_flag=True, help="Create .bak backups before applying")
 @click.option("--repo-root", type=click.Path(), default=".", help="Repository root")
 @click.option("--force", is_flag=True, help="Skip drift validation")
-def apply_patch(patch_file: str, format: str, apply: bool, backup: bool, repo_root: str, force: bool) -> None:
+@click.option("--auto-commit", is_flag=True, help="Automatically commit changes after applying patch")
+@click.option("--auto-push", is_flag=True, help="Automatically push to remote after commit")
+@click.option("--commit-message", type=str, default="Apply grafty patch", help="Custom commit message")
+@click.option("--allow-dirty", is_flag=True, help="Allow committing with dirty working directory")
+def apply_patch(
+    patch_file: str,
+    format: str,
+    apply: bool,
+    backup: bool,
+    repo_root: str,
+    force: bool,
+    auto_commit: bool,
+    auto_push: bool,
+    commit_message: str,
+    allow_dirty: bool,
+) -> None:
     """
-    Apply atomic multi-file patches (Phase 4.1).
+    Apply atomic multi-file patches (Phase 4.1, Phase 4.2 with VCS).
 
     Supports two patch file formats:
 
@@ -465,11 +480,21 @@ def apply_patch(patch_file: str, format: str, apply: bool, backup: bool, repo_ro
          }
        ]
 
+    VCS Integration (Phase 4.2):
+    - --auto-commit: Create a commit after applying patch
+    - --auto-push: Push to remote after commit
+    - --commit-message: Custom commit message (default: "Apply grafty patch")
+    - --allow-dirty: Allow commits even with uncommitted changes in working dir
+
     Examples:
     - grafty apply-patch patch.txt                    # Dry-run, simple format
     - grafty apply-patch patch.json --format json --apply  # Apply JSON patch
     - grafty apply-patch patch.txt --apply --backup   # Apply with backups
+    - grafty apply-patch patch.txt --apply --auto-commit --auto-push  # Apply + commit + push
+    - grafty apply-patch patch.txt --apply --auto-commit -m "Update API"  # Custom message
     """
+    from .vcs import GitRepo, GitConfig, NotAGitRepo, DirtyRepo, CommitFailed, PushFailed
+
     patch_set = PatchSet()
 
     # Load patch file
@@ -513,7 +538,32 @@ def apply_patch(patch_file: str, format: str, apply: bool, backup: bool, repo_ro
 
     # Apply if flag is set
     if apply:
-        result = patch_set.apply_atomic(repo_root=repo_root, backup=backup, force=force)
+        # Prepare git config if auto-commit is requested
+        git_config = None
+        if auto_commit or auto_push:
+            git_config = GitConfig(
+                auto_commit=auto_commit,
+                auto_push=auto_push,
+                allow_dirty=allow_dirty,
+                commit_message=commit_message,
+                dry_run=False,
+            )
+
+            # Pre-flight checks if git is enabled
+            try:
+                git_repo = GitRepo(repo_root, git_config)
+                git_repo.prepare_for_patch()
+            except (NotAGitRepo, DirtyRepo) as e:
+                click.echo(f"\n✗ Git check failed: {e}", err=True)
+                sys.exit(1)
+
+        result = patch_set.apply_atomic(
+            repo_root=repo_root,
+            backup=backup,
+            force=force,
+            git_config=git_config,
+        )
+
         if result.success:
             click.echo("\n✓ Patch applied successfully")
             click.echo(str(result))

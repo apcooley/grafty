@@ -1,8 +1,8 @@
 """
-multi_file_patch.py — Atomic multi-file patch application (Phase 4.1).
+multi_file_patch.py — Atomic multi-file patch application (Phase 4.1, Phase 4.2).
 
 Provides PatchSet for managing coordinated changes across multiple files
-with atomic writes, validation, and rollback support.
+with atomic writes, validation, rollback support, and optional Git integration.
 """
 import json
 import os
@@ -452,6 +452,7 @@ class PatchSet:
         repo_root: str = ".",
         backup: bool = False,
         force: bool = False,
+        git_config: Optional["GitConfig"] = None,
     ) -> PatchSetResult:
         """
         Apply all mutations atomically (all succeed or all rollback).
@@ -459,10 +460,16 @@ class PatchSet:
         Uses temp files + rename for atomic writes. On any error, rolls back
         all changes and restores backups.
 
+        Supports optional Git integration (Phase 4.2):
+        - Pre-patch: Validates repository and working directory state
+        - Post-patch: Creates commit and optionally pushes to remote
+        - On failure: Restores files from backups automatically
+
         Args:
             repo_root: Root directory for relative file paths
             backup: Create .bak backups before applying
             force: Skip drift validation
+            git_config: Optional GitConfig for VCS integration (Phase 4.2)
 
         Returns:
             PatchSetResult with success flag and file list
