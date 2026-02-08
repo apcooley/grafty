@@ -99,7 +99,7 @@ class TestLineNumberEditing:
         """Test that resolver can handle line-number selectors."""
         indexer = Indexer()
         indices = indexer.index_directory(str(tmp_repo))
-        resolver = Resolver(indices)
+        Resolver(indices)
 
         # Should not error on line selector, even if no exact match
         # The resolver will pass it to line number handler

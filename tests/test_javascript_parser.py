@@ -53,7 +53,7 @@ async function processAsync(data) {
         # Check functions
         functions = [n for n in nodes if n.kind == "js_function"]
         assert len(functions) == 2
-        assert set(f.name for f in functions) == {"fetchData", "processAsync"}
+        assert {f.name for f in functions} == {"fetchData", "processAsync"}
 
     def test_class_with_methods(self, tmp_path) -> None:
         """Test parsing class with methods."""
@@ -91,7 +91,7 @@ function bar(x, y) {
 
         functions = [n for n in nodes if n.kind == "js_function"]
         assert len(functions) == 2
-        assert set(f.name for f in functions) == {"foo", "bar"}
+        assert {f.name for f in functions} == {"foo", "bar"}
 
     def test_line_ranges(self, tmp_path) -> None:
         """Test that line ranges are correct."""

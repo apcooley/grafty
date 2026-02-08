@@ -5,8 +5,6 @@ test_multi_file_patch.py — Tests for multi-file atomic patch system (Phase 4.1
 Tests cover loading, validation, dry-run, atomic application, and edge cases.
 """
 import json
-import tempfile
-from pathlib import Path
 
 import pytest
 

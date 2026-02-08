@@ -60,12 +60,12 @@ fn fetch_data(url: &str) -> String {
         # Check methods
         methods = [n for n in nodes if n.kind == "rs_method"]
         assert len(methods) == 3
-        assert set(m.name for m in methods) == {"new", "process", "validate"}
+        assert {m.name for m in methods} == {"new", "process", "validate"}
 
         # Check functions
         functions = [n for n in nodes if n.kind == "rs_function"]
         assert len(functions) == 2
-        assert set(f.name for f in functions) == {"main", "fetch_data"}
+        assert {f.name for f in functions} == {"main", "fetch_data"}
 
     def test_trait_declaration(self, tmp_path) -> None:
         """Test parsing trait declaration."""

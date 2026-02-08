@@ -5,16 +5,12 @@ Provides PatchSet for managing coordinated changes across multiple files
 with atomic writes, validation, rollback support, and optional Git integration.
 """
 import json
-import os
-import shutil
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from .patch import (
     apply_patch_to_buffer,
-    compute_hash,
     generate_unified_diff,
     normalize_newlines,
     read_file_with_hash,
@@ -22,6 +18,9 @@ from .patch import (
     validate_drift,
     write_atomic,
 )
+
+if TYPE_CHECKING:
+    from .vcs import GitConfig
 
 
 @dataclass
@@ -538,9 +537,60 @@ class PatchSet:
                     newline_mode=newline_mode,
                 )
 
+            # Handle Git integration (Phase 4.2) if configured
+            result_message = f"Applied patch to {len(modified_files)} file(s)"
+            if git_config:
+                from .vcs import GitRepo, CommitFailed, PushFailed
+
+                try:
+                    git_repo = GitRepo(repo_root, git_config)
+
+                    # Stage and commit changes
+                    if git_config.auto_commit:
+                        modified_abs_paths = [
+                            str(Path(repo_root) / f) for f in modified_files.keys()
+                        ]
+                        commit_hash = git_repo.stage_and_commit(
+                            modified_abs_paths, git_config.commit_message
+                        )
+                        result_message += f"\nCommitted: {commit_hash}"
+
+                        # Push if requested
+                        if git_config.auto_push:
+                            current_branch = git_repo.get_current_branch()
+                            git_repo.push_to_remote(branch=current_branch)
+                            result_message += "\nPushed to remote"
+
+                except (CommitFailed, PushFailed) as git_err:
+                    # On git error, rollback file changes
+                    rollback_errors = []
+                    for file_path, (original_content, _, _) in file_states.items():
+                        try:
+                            abs_path = Path(repo_root) / file_path
+                            _, newline_mode = normalize_newlines(original_content)
+                            write_atomic(
+                                str(abs_path),
+                                original_content,
+                                backup=False,
+                                newline_mode=newline_mode,
+                            )
+                        except Exception as rollback_e:
+                            rollback_errors.append(f"Rollback {file_path}: {rollback_e}")
+
+                    error_msg = f"Git operation failed: {git_err}"
+                    if rollback_errors:
+                        error_msg += "\nRollback errors:\n" + "\n".join(rollback_errors)
+
+                    return PatchSetResult(
+                        success=False,
+                        message="Patch applied but Git operation failed; files rolled back",
+                        errors=[error_msg] + rollback_errors,
+                        files_modified=list(modified_files.keys()),
+                    )
+
             return PatchSetResult(
                 success=True,
-                message=f"Applied patch to {len(modified_files)} file(s)",
+                message=result_message,
                 files_modified=list(modified_files.keys()),
             )
 
@@ -563,7 +613,7 @@ class PatchSet:
 
             error_msg = f"Patch application failed: {e}"
             if rollback_errors:
-                error_msg += f"\nRollback errors:\n" + "\n".join(rollback_errors)
+                error_msg += "\nRollback errors:\n" + "\n".join(rollback_errors)
 
             return PatchSetResult(
                 success=False,

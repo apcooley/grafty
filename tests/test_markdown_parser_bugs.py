@@ -12,9 +12,8 @@ Bug #2: Markdown Parser Treats Code Comments as Headings
 
 import tempfile
 from pathlib import Path
-import pytest
 from grafty.parsers.markdown_ts import MarkdownParser
-from grafty.models import FileIndex, Node
+from grafty.models import FileIndex
 from grafty.editor import Editor
 
 

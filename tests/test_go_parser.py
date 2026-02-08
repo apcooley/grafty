@@ -50,12 +50,12 @@ func fetchData(url string) string {
         # Check functions
         functions = [n for n in nodes if n.kind == "go_function"]
         assert len(functions) == 2
-        assert set(f.name for f in functions) == {"main", "fetchData"}
+        assert {f.name for f in functions} == {"main", "fetchData"}
 
         # Check methods
         methods = [n for n in nodes if n.kind == "go_method"]
         assert len(methods) == 2
-        assert set(m.name for m in methods) == {"Process", "Validate"}
+        assert {m.name for m in methods} == {"Process", "Validate"}
 
     def test_struct_declaration(self, tmp_path) -> None:
         """Test parsing struct declaration."""
@@ -94,7 +94,7 @@ func (c *Calculator) Get() int {
 
         methods = [n for n in nodes if n.kind == "go_method"]
         assert len(methods) == 2
-        assert set(m.name for m in methods) == {"Add", "Get"}
+        assert {m.name for m in methods} == {"Add", "Get"}
 
     def test_line_ranges(self, tmp_path) -> None:
         """Test that line ranges are correct."""

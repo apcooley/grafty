@@ -1,5 +1,68 @@
 # Changelog
 
+## [0.6.0] - 2026-02-08
+
+### 🎯 Phase 4.2: VCS Integration (Git)
+
+**Problem**: Users want to automatically commit and push patches after applying them. Manual `git add`/`git commit`/`git push` steps are repetitive and error-prone. Patch application should be atomic at the VCS level too.
+
+**Solution**: 
+- `GitConfig` for configuring VCS behavior (auto-commit, auto-push, commit message, dry-run)
+- `GitRepo` class for managing Git operations (pre-flight checks, commit, push, rollback)
+- Integration with `apply_patch` command: `--auto-commit`, `--auto-push`, `--commit-message`, `--allow-dirty`
+- Pre-patch validation: Check repository is valid and working directory state
+- Post-patch automation: Commit changed files and optionally push to remote
+- Error recovery: On git failure, rolls back file changes automatically
+- Dry-run support for testing without side effects
+
+**Implementation** (`grafty/vcs/git_integration.py`):
+- `GitConfig` dataclass for settings
+- `GitRepo.prepare_for_patch()` validates repository and working directory
+- `GitRepo.stage_and_commit()` stages and commits files atomically
+- `GitRepo.push_to_remote()` pushes to remote (with optional branch)
+- `GitRepo.rollback_to_backup()` restores from `.bak` files on failure
+- Custom exceptions: `NotAGitRepo`, `DirtyRepo`, `CommitFailed`, `PushFailed`
+
+**CLI Changes** (`grafty/cli.py` apply-patch command):
+- `--auto-commit`: Enable automatic commit after patch application
+- `--auto-push`: Enable automatic push to remote (requires `--auto-commit`)
+- `--commit-message`: Custom commit message (default: "Apply grafty patch")
+- `--allow-dirty`: Allow committing even with uncommitted changes in working directory
+
+**Integration** (`grafty/multi_file_patch.py` apply_atomic method):
+- New optional `git_config` parameter
+- After successful patch write: Call `git_repo.stage_and_commit()` if configured
+- After commit: Call `git_repo.push_to_remote()` if `auto_push` is enabled
+- On any failure: Restore files from backups and return error status
+
+**Tests** (`tests/test_vcs_integration.py`):
+- 25+ tests covering all Git operations
+- Mock git repositories for testing
+- Test scenarios: clean repo, dirty repo, failed commits, push failures
+- Dry-run mode validation
+- Backup restoration on rollback
+
+**Examples**:
+```bash
+# Apply patch with automatic commit
+grafty apply-patch patch.txt --apply --auto-commit
+
+# Apply patch, commit, and push
+grafty apply-patch patch.txt --apply --auto-commit --auto-push
+
+# Custom commit message
+grafty apply-patch patch.txt --apply --auto-commit --commit-message "Fix issue #42"
+
+# Allow dirty working directory
+grafty apply-patch patch.txt --apply --auto-commit --allow-dirty
+```
+
+**Atomicity**: Patch application and Git operations are coordinated but not transactional. On Git failure, files are rolled back but the patch application is considered "in-progress". This is intentional to preserve file backup history.
+
+**Non-breaking**: Existing `apply-patch` usage without git flags works exactly as before.
+
+---
+
 ## [0.5.1] - 2026-02-08 (Hotfix)
 
 ### 🐛 Bug Fixes

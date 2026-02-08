@@ -186,7 +186,8 @@ class GitRepo:
         """
         for file_path in file_paths:
             file_p = Path(file_path)
-            backup_path = file_p.with_suffix(file_p.suffix + ".bak")
+            # Append .bak to filename (not replace suffix)
+            backup_path = file_p.parent / (file_p.name + ".bak")
 
             if backup_path.exists():
                 try:

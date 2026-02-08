@@ -120,13 +120,13 @@ def search(
 def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_root: str) -> None:
     """
     Show a node by selector.
-    
+
     Selector formats (Phase 3):
     - ID-based: abc123def456
     - Structural: file.py:py_function:my_func
     - Line-based: file.py:42 or file.py:42-50
     - Fuzzy: my_func (searches all nodes)
-    
+
     Examples:
     - grafty show "src/main.py:py_function:parse_config"
     - grafty show "file.py:42"          # Line number selector
@@ -207,17 +207,17 @@ def replace(
 ) -> None:
     """
     Replace a node or line range.
-    
+
     Selector formats (Phase 3):
     - Structural: file.py:py_function:main
     - Line-based: file.py:42 (single) or file.py:42-50 (range)
     - Fuzzy: my_func
-    
+
     Examples:
     - grafty replace "src/main.py:py_function:old_impl" --text "def old_impl(): return 42" --apply
     - grafty replace "file.py:42-50" --file new_impl.py --apply
     - grafty replace "main.py:10" --text "new_line" --apply
-    
+
     Options:
     - --text: Inline replacement text
     - --file: Read replacement from file
@@ -317,19 +317,19 @@ def insert(
 ) -> None:
     """
     Insert text at a line number or relative to a selector.
-    
+
     Insertion modes:
     - --line N: Insert at line N (absolute)
     - --before: Insert before selector
     - --after: Insert after selector
     - --inside-start: Insert at start of selector block
     - --inside-end: Insert at end of selector block
-    
+
     Examples:
     - grafty insert --line 42 --text "new line" --apply
     - grafty insert "file.py:py_class:MyClass" --inside-end --text "def new_method(): pass" --apply
     - grafty insert "file.py:py_function:main" --before --file header.txt --apply
-    
+
     Options:
     - --text: Inline text to insert
     - --file: Read text from file
@@ -364,17 +364,17 @@ def delete(
 ) -> None:
     """
     Delete a node or line range.
-    
+
     Selector formats (Phase 3):
     - Structural: file.py:py_function:unused_fn
     - Line-based: file.py:42-50
     - Fuzzy: unused_fn
-    
+
     Examples:
     - grafty delete "src/utils.py:py_function:unused_fn" --apply
     - grafty delete "file.py:42-50" --apply --backup
     - grafty delete "old_code" --dry-run  # See patch first
-    
+
     Options:
     - --apply: Apply deletion (default: dry-run shows patch)
     - --backup: Create .bak backup before applying
@@ -439,10 +439,25 @@ def check(patch_file: str, repo_root: str) -> None:
 @click.option("--backup", is_flag=True, help="Create .bak backups before applying")
 @click.option("--repo-root", type=click.Path(), default=".", help="Repository root")
 @click.option("--force", is_flag=True, help="Skip drift validation")
-@click.option("--auto-commit", is_flag=True, help="Automatically commit changes after applying patch")
-@click.option("--auto-push", is_flag=True, help="Automatically push to remote after commit")
-@click.option("--commit-message", type=str, default="Apply grafty patch", help="Custom commit message")
-@click.option("--allow-dirty", is_flag=True, help="Allow committing with dirty working directory")
+@click.option(
+    "--auto-commit",
+    is_flag=True,
+    help="Automatically commit changes after applying patch",
+)
+@click.option(
+    "--auto-push", is_flag=True, help="Automatically push to remote after commit"
+)
+@click.option(
+    "--commit-message",
+    type=str,
+    default="Apply grafty patch",
+    help="Custom commit message",
+)
+@click.option(
+    "--allow-dirty",
+    is_flag=True,
+    help="Allow committing with dirty working directory",
+)
 def apply_patch(
     patch_file: str,
     format: str,
@@ -493,7 +508,7 @@ def apply_patch(
     - grafty apply-patch patch.txt --apply --auto-commit --auto-push  # Apply + commit + push
     - grafty apply-patch patch.txt --apply --auto-commit -m "Update API"  # Custom message
     """
-    from .vcs import GitRepo, GitConfig, NotAGitRepo, DirtyRepo, CommitFailed, PushFailed
+    from .vcs import GitRepo, GitConfig, NotAGitRepo, DirtyRepo
 
     patch_set = PatchSet()
 
