@@ -171,22 +171,22 @@ grafty show "src/main.py:py_method:parse"
 
 ```bash
 # Create a file with your new implementation
-cat > new_parse.py << 'EOF'
-def parse(self, data):
-    """Parse data using new algorithm."""
-    results = []
-    for line in data.split('\n'):
-        if line.strip():
-            results.append(self._parse_line(line))
-    return results
+cat > new_validate.py << 'EOF'
+def validate_email(email):
+    """Validate email using basic RFC rules."""
+    return bool(re.match(r'^[a-zA-Z0-9+._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email))
 EOF
 
-# Apply the change
-grafty replace "src/main.py:py_method:parse" \
-  --file new_parse.py \
+# Use grafty to replace the old function with the new one
+grafty replace "src/validators.py:py_function:validate_email" \
+  --file new_validate.py \
+  --dry-run  # Preview first
+
+# See the unified diff, then apply when ready
+grafty replace "src/validators.py:py_function:validate_email" \
+  --file new_validate.py \
   --apply --backup
 ```
-
 ### Step 4: Verify
 
 ```bash
