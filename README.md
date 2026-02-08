@@ -497,34 +497,9 @@ If conflicts arise, use git's 3-way merge or your favorite merge tool.
 
 grafty is actively developed. Here's what's coming:
 
-### Phase 3: Core Gaps ✅ **Complete in v0.4.0**
+**Current:** Phase 3 ✅ **Complete in v0.4.0** (Line-number editing, error messages, query language)
 
-✨ **Line-number editing** — `grafty replace file.py:42-50 --text "..."`  
-✨ **Improved error messages** — Shows candidates when selectors don't match  
-✨ **Query language** — `grafty search "*validate*"` to find code by pattern  
-
-### Phase 4: Safety & Collaboration (Coming)
-
-🔐 **Multi-file patches** — Atomic changes across multiple files  
-🔐 **VCS integration** — Auto-commit with rollback on failure  
-📝 **Comment extraction** — Edit docstrings separately from code  
-
-### Phase 5: Discovery & Visualization (Coming)
-
-🌐 **Web UI** — Side-by-side before/after visualization  
-🌳 **Node tree explorer** — ASCII tree + interactive web explorer  
-
-### Phase 6: Performance & Scale (Coming)
-
-⚡ **Index caching** — 10-50x speedup for large files  
-⚡ **LSP integration** — Optional semantic awareness (Rust, Go, etc.)  
-
-### Phase 7: Extended Languages (Coming)
-
-- C/C++ (high demand for large codebases)
-- Java, Scala (JVM ecosystem)
-- SQL, PostgreSQL (database work)
-- Shell script (.sh, .bash)
+**Future phases:** See **[docs/ROADMAP.md](./docs/ROADMAP.md)** for phases 4–7 (safety, visualization, performance, extended languages)
 
 ---
 
@@ -559,7 +534,11 @@ grafty replace "myfile.py:py_function:my_func" \
 
 ## Contributing
 
-Contributions welcome! See `FEATURE_PLAN_PHASE2.md` for detailed phases and complexity levels.
+**Contributions welcome!** See **[docs/CONTRIBUTING.md](./docs/CONTRIBUTING.md)** for:
+- How to set up your development environment
+- Starter tasks organized by complexity (Low/Medium/High)
+- How to run tests and validate your work
+- The design philosophy behind grafty
 
 **Good starter issues:**
 - Bug reports with reproducers
@@ -567,7 +546,7 @@ Contributions welcome! See `FEATURE_PLAN_PHASE2.md` for detailed phases and comp
 - Performance profiling
 - Real-world use case feedback
 
-**Want to add a language?** See `LANGUAGE_ROADMAP.md` for parser guidance.
+**Want to add a language?** Check the phase breakdown in [docs/ROADMAP.md](./docs/ROADMAP.md) (Phase 7).
 
 ---
 
