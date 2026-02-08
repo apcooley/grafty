@@ -402,6 +402,152 @@ grafty replace "tasks.org:org_heading_preamble:Phase 1" \
 
 ---
 
+## 🗺️ Roadmap
+
+Grafty is designed around **boundaries**: every feature is precise, safe, and doesn't bleed into others. This roadmap reflects lessons learned from Phase 1 & 2 development.
+
+### Phase 3: Core Gaps (Next)
+
+These features unblock real use cases discovered during development.
+
+#### 3.1: Line-Number Editing
+- **Why**: Handles ~20% of edit requests (quick patches, emergency fixes, diff-based workflows)
+- **What**: Support `grafty replace file.py:42-50 --text "..."`
+- **Impact**: Makes grafty complement line-based tools (sed, awk) instead of replacing them
+- **Complexity**: Low (leverage existing patch infrastructure)
+- **Status**: Planned
+
+#### 3.2: Improved Error Messages
+- **Why**: Current errors are vague ("No node found matching...")
+- **What**: 
+  - Show candidates when fuzzy match fails
+  - Explain why selector didn't resolve
+  - Suggest similar names
+- **Example**: 
+  ```
+  Error: No py_function named 'proceess' found.
+  Did you mean: process, process_raw, process_line?
+  (Searched in src/main.py)
+  ```
+- **Impact**: Faster debugging, better UX for interactive use
+- **Complexity**: Low (enhance `selectors.py`)
+- **Status**: Planned
+
+#### 3.3: Query Language for Finding Code
+- **Why**: Current workflow requires knowing exact names (`py_function:process`)
+- **What**: Regex/pattern matching on node names and kinds
+  - `grafty show "src/:py_method:*validate*"` → all validation methods
+  - `grafty index . | grep "py_class:Data.*"`
+  - `grafty search "rs_impl:.*Error.*"` → error impl blocks
+- **Impact**: Enables "find all X" workflows without manual inspection
+- **Complexity**: Medium (add filter/search command)
+- **Status**: Planned
+
+### Phase 4: Safety & Collaboration
+
+Features that make grafty safe and auditable in team environments.
+
+#### 4.1: Multi-File Patches
+- **Why**: Real refactors span multiple files (rename class → update all references)
+- **What**: Single unified diff covering multiple files
+  ```bash
+  grafty replace src/a.py:py_class:Processor \
+                  src/b.py:py_function:create_processor \
+                  --file changes.patch --apply
+  ```
+- **Impact**: Atomic cross-file edits; coordinated refactoring
+- **Complexity**: High (extend patch infrastructure)
+- **Status**: Future (v0.4+)
+
+#### 4.2: VCS Integration (Git/Hg/SVN)
+- **Why**: Full traceability; automatic rollback on failure
+- **What**:
+  - Auto-commit after successful edits (with message template)
+  - Atomic: if patch fails, rollback to pre-edit state
+  - Multi-VCS support
+- **Impact**: Zero-risk editing; audit trail for every change
+- **Complexity**: Medium (spawn VCS commands, handle errors)
+- **Status**: Future (v0.4+)
+
+#### 4.3: Comment/Docstring Extraction
+- **Why**: Documentation lives in code; sometimes you only want to edit docs
+- **What**: New node kinds for docstrings
+  - `py_docstring:MyClass` → docstring only
+  - `rs_doc_comment:validate` → rustdoc comment
+  - `go_godoc:Package` → package-level godoc
+- **Impact**: Update docs without risking code; extract API reference
+- **Complexity**: Medium (per-language comment parsing)
+- **Status**: Future (v0.4+)
+
+### Phase 5: Discovery & Visualization
+
+Features that make patches understandable and reviewable.
+
+#### 5.1: Web UI for Patch Visualization
+- **Why**: Unified diffs are hard to review for non-technical users
+- **What**:
+  - Side-by-side before/after view with syntax highlighting
+  - Click to apply/reject individual hunks
+  - Show structural context (class → method changed)
+- **Impact**: Makes reviewing agent-generated patches non-scary
+- **Complexity**: High (React/Vue UI, diff rendering)
+- **Status**: Future (v0.5+)
+
+#### 5.2: Node Hierarchy Visualization
+- **Why**: Understanding structure helps with selector discovery
+- **What**:
+  - `grafty tree file.py` → ASCII tree of all nodes
+  - Interactive web explorer (drill down by kind/name)
+  - Export as JSON/GraphQL
+- **Impact**: Helps agents understand file structure before editing
+- **Complexity**: Medium (tree rendering)
+- **Status**: Future (v0.5+)
+
+### Phase 6: Performance & Scale
+
+Features that make grafty work on large codebases and generated code.
+
+#### 6.1: Index Caching
+- **Why**: Currently, 10MB+ files are slow (re-parse every run)
+- **What**:
+  - Persist parse tree to `.grafty.cache/`
+  - Invalidate on file change (mtime + hash)
+  - Share cache across commands
+- **Impact**: 10-50x speedup for large files
+- **Complexity**: Medium (cache invalidation is hard)
+- **Status**: Future (v0.5+)
+
+#### 6.2: Language Server Integration
+- **Why**: Tree-sitter is good; LSP is better (semantic info, real symbols)
+- **What**:
+  - Optional: use LSP instead of Tree-sitter for languages with good servers
+  - Fallback: Tree-sitter if LSP unavailable
+  - Tradeoff: more dependencies, less portable
+- **Impact**: Better type awareness, actual compiler symbols
+- **Complexity**: High (LSP protocol, language-specific servers)
+- **Status**: Future (v0.6+, optional)
+
+### Phase 7: Extended Languages
+
+Parsers for ecosystems where grafty would unlock value.
+
+- **Go, Rust, Java**: High demand (already v0.3 has Go/Rust)
+- **C/C++**: Complex but valuable for large codebases
+- **JavaScript/TypeScript**: Already in v0.3; consider Web-specific nodes (DOM, React)
+- **SQL**: Query structure extraction (stored procedures, schemas)
+
+---
+
+## 🎯 Design Principles (Guiding All Phases)
+
+1. **Precise Boundaries**: Every node has clear start/end. No ambiguity.
+2. **Backward Compatibility**: New features don't break old selectors.
+3. **Token Efficiency**: Every feature saves tokens vs. showing whole files.
+4. **Safety First**: Atomic writes, drift detection, dry-run always available.
+5. **Structural > Textual**: Understand code shape, not patterns.
+
+---
+
 ## FAQ
 
 **Q: Why not just use grep/sed?**
@@ -451,6 +597,12 @@ uv run pytest tests/ -v
 
 ## Changelog
 
+**v0.3.0** (2026-02-08)
+- ✨ Multi-language support: JavaScript/TypeScript, Go, Rust
+- 🧪 17 new parser tests (54/54 total passing)
+- 📋 Comprehensive roadmap for future phases
+- 📚 Retrospective + feature analysis
+
 **v0.2.0** (2026-02-08)
 - ✨ Heading preambles for Markdown & Org-mode
 - 🐛 Fixed fuzzy selector matching
@@ -481,11 +633,25 @@ MIT
 
 ## Contributing
 
-Contributions welcome! Areas of interest:
-- Additional language parsers (Go, Rust, Java)
-- List item and table cell nodes
-- Web UI for patch visualization
-- Integration with language servers
+Contributions welcome! See the **[Roadmap](#-roadmap)** for detailed phases and complexity levels.
+
+**High-impact, low-complexity starter tasks:**
+- Line-number editing (Phase 3.1)
+- Improved error messages (Phase 3.2)
+- Query language for finding code (Phase 3.3)
+- Comment/docstring extraction (Phase 4.3)
+
+**Challenging but valuable:**
+- Multi-file patches (Phase 4.1)
+- VCS integration (Phase 4.2)
+- Web UI (Phase 5.1)
+- Language server integration (Phase 6.2)
+
+**Always welcome:**
+- Bug reports with minimal reproducers
+- Performance profiling + optimization ideas
+- Real-world use case feedback
+- Documentation improvements
 
 ---
 
