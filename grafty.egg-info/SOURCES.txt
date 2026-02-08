@@ -18,9 +18,12 @@ grafty.egg-info/top_level.txt
 grafty/parsers/__init__.py
 grafty/parsers/clojure_fallback.py
 grafty/parsers/clojure_ts.py
+grafty/parsers/go_ts.py
+grafty/parsers/javascript_ts.py
 grafty/parsers/markdown_ts.py
 grafty/parsers/org.py
 grafty/parsers/python_ts.py
+grafty/parsers/rust_ts.py
 tests/test_clojure_parser.py
 tests/test_markdown_parser.py
 tests/test_org_parser.py

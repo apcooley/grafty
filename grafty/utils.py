@@ -73,6 +73,12 @@ def detect_file_type(path: str) -> Optional[str]:
         ".org": "orgmode",
         ".clj": "clojure",
         ".cljs": "clojurescript",
+        ".js": "javascript",
+        ".ts": "javascript",
+        ".jsx": "javascript",
+        ".tsx": "javascript",
+        ".go": "go",
+        ".rs": "rust",
     }
     return ext_to_kind.get(p.suffix)
 
@@ -80,10 +86,10 @@ def detect_file_type(path: str) -> Optional[str]:
 def find_files(root: str, extensions: Optional[List[str]] = None) -> List[str]:
     """
     Recursively find files matching extensions.
-    If extensions is None, default to [.py, .md, .org, .clj, .cljs].
+    If extensions is None, default to [.py, .md, .org, .clj, .cljs, .js, .ts, .go, .rs].
     """
     if extensions is None:
-        extensions = [".py", ".md", ".org", ".clj", ".cljs"]
+        extensions = [".py", ".md", ".org", ".clj", ".cljs", ".js", ".ts", ".go", ".rs"]
 
     root_path = Path(root)
     files = []

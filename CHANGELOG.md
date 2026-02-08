@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.3.0] - 2026-02-08
+
+### ✨ Multi-Language Support
+
+#### JavaScript/TypeScript Parser
+- **Node kinds**: `js_function`, `js_class`, `js_method`
+- **Supported files**: `.js`, `.ts`, `.jsx`, `.tsx` (JSX/TypeScript compatible)
+- **Example**: `grafty show "app.ts:js_class:DataProcessor"`
+
+#### Go Parser
+- **Node kinds**: `go_function`, `go_method`, `go_type`
+- **Supported files**: `.go`
+- **Example**: `grafty show "main.go:go_method:Process"`
+
+#### Rust Parser
+- **Node kinds**: `rs_function`, `rs_struct`, `rs_impl`, `rs_method`, `rs_trait`, `rs_macro`
+- **Supported files**: `.rs`
+- **Example**: `grafty show "lib.rs:rs_impl:DataProcessor"`
+
+### 🧪 New Tests
+- 17 comprehensive tests for JS, Go, Rust parsers
+- All 54 tests passing (37 original + 17 new)
+
+### 🔄 Backward Compatibility
+✅ **100% compatible** — All existing parsers and features work unchanged
+
+---
+
 ## [0.2.0] - 2026-02-08
 
 ### ✨ New Features

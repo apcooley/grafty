@@ -6,7 +6,15 @@ from typing import List, Dict, Optional
 from .models import FileIndex
 from .patch import read_file_with_hash
 from .utils import detect_file_type, find_files
-from .parsers import PythonParser, MarkdownParser, OrgParser, ClojureParser
+from .parsers import (
+    PythonParser,
+    MarkdownParser,
+    OrgParser,
+    ClojureParser,
+    JavaScriptParser,
+    GoParser,
+    RustParser,
+)
 
 
 class Indexer:
@@ -19,6 +27,9 @@ class Indexer:
             "orgmode": OrgParser(),
             "clojure": ClojureParser(),
             "clojurescript": ClojureParser(),
+            "javascript": JavaScriptParser(),
+            "go": GoParser(),
+            "rust": RustParser(),
         }
 
     def index_file(self, file_path: str) -> FileIndex:
