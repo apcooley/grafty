@@ -1,0 +1,2 @@
+[console_scripts]
+grafty = grafty.cli:main

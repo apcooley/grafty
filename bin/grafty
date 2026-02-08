@@ -1,0 +1,17 @@
+#!/bin/bash
+# grafty — Token-optimized structural editor CLI
+# 
+# Usage: ./bin/grafty [command] [args]
+#        uv run grafty [command] [args]
+#
+# This script uses uv to run grafty with proper dependency management.
+
+set -e
+
+# Get the absolute path to the project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Run grafty using uv
+cd "$PROJECT_ROOT"
+exec uv run python3 -m grafty "$@"
