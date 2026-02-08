@@ -1,7 +1,6 @@
 """
 Tests for Go parser.
 """
-import pytest
 from grafty.parsers import GoParser
 
 

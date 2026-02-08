@@ -25,8 +25,12 @@ grafty/parsers/org.py
 grafty/parsers/python_ts.py
 grafty/parsers/rust_ts.py
 tests/test_clojure_parser.py
+tests/test_go_parser.py
+tests/test_javascript_parser.py
 tests/test_markdown_parser.py
 tests/test_org_parser.py
 tests/test_patch.py
+tests/test_phase3.py
 tests/test_preambles.py
 tests/test_python_parser.py
+tests/test_rust_parser.py

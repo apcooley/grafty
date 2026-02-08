@@ -2,7 +2,7 @@
 go_ts.py — Go indexing via Tree-sitter.
 Supports: .go files
 """
-from typing import List, Optional, Dict
+from typing import List, Optional
 from pathlib import Path
 
 try:

@@ -3,7 +3,6 @@ test_preambles.py — Tests for heading preambles (.md and .org files).
 
 Preambles allow editing intro text without affecting subheadings.
 """
-import pytest
 from pathlib import Path
 
 from grafty.parsers.markdown_ts import MarkdownParser

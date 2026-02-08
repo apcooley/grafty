@@ -56,6 +56,61 @@ def index(paths: List[str], output_json: bool) -> None:
 
 
 @cli.command()
+@click.argument("pattern")
+@click.option("--path", type=str, help="Limit search to path pattern (e.g., src/)")
+@click.option("--kind", type=str, help="Limit to node kind (e.g., py_function)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option("--repo-root", type=click.Path(), default=".", help="Repository root")
+def search(
+    pattern: str, path: Optional[str], kind: Optional[str],
+    output_json: bool, repo_root: str
+) -> None:
+    """
+    Search nodes by glob pattern (Phase 3.3).
+
+    Examples:
+    - grafty search "*validate*"        # Find all nodes with 'validate'
+    - grafty search "test_*"             # Find all nodes starting with 'test_'
+    - grafty search "*_test" --path src/ # Find nodes ending with '_test' in src/
+    """
+    indexer = Indexer()
+    indices = indexer.index_directory(repo_root)
+    resolver = Resolver(indices)
+
+    # Build selector for query_nodes_by_path_glob
+    if path and kind:
+        selector = f"{path}:{kind}:{pattern}"
+        results = resolver.query_nodes_by_path_glob(selector)
+    elif path:
+        selector = f"{path}:*:{pattern}"
+        results = resolver.query_nodes_by_path_glob(selector)
+    elif kind:
+        # Query all paths with specific kind
+        results = [n for n in resolver.query_nodes_by_pattern(pattern) if n.kind == kind]
+    else:
+        # Just pattern search
+        results = resolver.query_nodes_by_pattern(pattern)
+
+    if output_json:
+        output = {
+            "pattern": pattern,
+            "count": len(results),
+            "nodes": [n.to_dict() for n in results],
+        }
+        click.echo(json.dumps(output, indent=2))
+    else:
+        if not results:
+            click.echo(f"No nodes matching pattern: {pattern}")
+        else:
+            click.echo(f"Found {len(results)} nodes matching '{pattern}':\n")
+            for node in results[:20]:  # Limit to 20 results
+                path_spec = f"{node.path}:{node.start_line}-{node.end_line}"
+                click.echo(f"[{node.kind:15}] {node.name:40} {path_spec}")
+            if len(results) > 20:
+                click.echo(f"\n... and {len(results) - 20} more")
+
+
+@cli.command()
 @click.argument("selector")
 @click.option("--max-lines", type=int, default=50, help="Max lines to show")
 @click.option("--max-chars", type=int, default=2000, help="Max chars to show")
@@ -79,9 +134,13 @@ def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_
                     f"  {node.path}:{node.kind}:{node.name}",
                     err=True,
                 )
+            click.echo("\nUse full path:kind:name format to disambiguate.", err=True)
             sys.exit(1)
         else:
-            click.echo(f"Error: {result.error}", err=True)
+            # Improved error message (Phase 3)
+            error_msg = result.error or f"Selector '{selector}' did not resolve"
+            click.echo(f"Error: {error_msg}", err=True)
+            click.echo("\nTip: Use 'grafty index <path>' to see available nodes.", err=True)
             sys.exit(1)
 
     node = result.exact_match
@@ -131,7 +190,14 @@ def replace(
     backup: bool,
     repo_root: str,
 ) -> None:
-    """Replace a node."""
+    """
+    Replace a node.
+
+    Supports:
+    - Path:kind:name selectors: file.py:py_function:main
+    - Line numbers (Phase 3): file.py:42 or file.py:42-50
+    - Fuzzy name search: my_func
+    """
     if not text and not file:
         click.echo("Error: Must provide --text or --file", err=True)
         sys.exit(1)
@@ -146,10 +212,25 @@ def replace(
     indexer = Indexer()
     indices = indexer.index_directory(repo_root)
     resolver = Resolver(indices)
+
+    # Try to resolve selector - might be line number format
     result = resolver.resolve(selector)
 
     if not result.is_resolved():
-        click.echo(f"Error: {result.error or 'Ambiguous selector'}", err=True)
+        # Improved error message (Phase 3)
+        if result.candidates:
+            click.echo("Ambiguous selector. Did you mean:", err=True)
+            for node in result.candidates[:5]:
+                click.echo(
+                    f"  {node.path}:{node.kind}:{node.name}",
+                    err=True,
+                )
+            click.echo("\nUse full path:kind:name format to disambiguate.", err=True)
+        else:
+            error_msg = result.error or f"Selector '{selector}' did not resolve"
+            click.echo(f"Error: {error_msg}", err=True)
+            formats = "path:kind:name | path:line | path:line-line | fuzzy_name"
+            click.echo(f"\nFormats: {formats}", err=True)
         sys.exit(1)
 
     node = result.exact_match

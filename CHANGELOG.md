@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.4.0] - 2026-02-08
+
+### 🎯 Phase 3: Core Gaps Complete
+
+#### 1. Line-Number Editing (3.1)
+- **Support absolute line references** instead of just structural selectors
+- **Format**: `grafty replace file.py:42 --text "..."` (single line)
+- **Format**: `grafty replace file.py:42-50 --text "..."` (range)
+- **Leverage**: Existing patch infrastructure for reliable mutations
+- **Example**: Edit config section without knowing exact function name
+
+#### 2. Improved Error Messages (3.2)
+- **Show candidates** when fuzzy match fails (top 10 matches)
+- **Explain failures** with context about available nodes
+- **Suggest similar names** in candidates list
+- **Better UX** for discovery and disambiguation
+- **Example**: `No node found in src/main.py lines 42-50. Available: MyClass (1-20), helper (22-35)`
+
+#### 3. Query Language (3.3)
+- **Glob pattern matching** for node names
+- **Format**: `grafty search "*validate*"` finds all containing "validate"
+- **Supported wildcards**: `*pattern`, `pattern*`, `*pattern*`, `start*end`
+- **Path globs**: `grafty search "*validate*" --path src/`
+- **New command**: `grafty search` with pattern, kind, and path filters
+- **Example**: Find all test functions with `grafty search "test_*"`
+
+### 📊 Test Coverage
+- **24 new tests** for Phase 3 features
+- **78 total tests** passing (54 original + 24 new)
+- **100% backward compatible** with v0.3.0
+
+### 🔧 Quality Gates Met
+✅ All tests passing
+✅ Linting clean (ruff)
+✅ No breaking changes
+✅ Backward compatible workflows
+
+---
+
 ## [0.3.0] - 2026-02-08
 
 ### ✨ Multi-Language Support

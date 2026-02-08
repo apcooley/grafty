@@ -1,7 +1,6 @@
 """
 Tests for Rust parser.
 """
-import pytest
 from grafty.parsers import RustParser
 
 

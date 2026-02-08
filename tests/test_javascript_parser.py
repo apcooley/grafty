@@ -1,9 +1,7 @@
 """
 Tests for JavaScript/TypeScript parser.
 """
-import pytest
 from grafty.parsers import JavaScriptParser
-from grafty.models import Node
 
 
 class TestJavaScriptParser:
