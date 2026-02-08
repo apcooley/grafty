@@ -57,9 +57,11 @@ class MarkdownParser:
 
         # Tree-sitter markdown uses 'atx_heading' nodes (and setext_heading)
         if node.type in ("atx_heading", "setext_heading"):
-            heading_node = self._parse_heading(node, file_path, content)
-            if heading_node:
-                nodes.append(heading_node)
+            # Extra safety: verify the heading is NOT inside a code fence
+            if not self._is_inside_code_fence(node):
+                heading_node = self._parse_heading(node, file_path, content)
+                if heading_node:
+                    nodes.append(heading_node)
 
         # Recurse into children
         for child in node.children:
@@ -102,6 +104,18 @@ class MarkdownParser:
             end_byte=node.end_byte,
             heading_level=level,
         )
+
+    def _is_inside_code_fence(self, node) -> bool:
+        """
+        Check if a node is inside a code fence.
+        Traverses parent nodes to find fenced_code_block or code_fence.
+        """
+        current = node.parent
+        while current is not None:
+            if current.type in ("fenced_code_block", "code_fence"):
+                return True
+            current = current.parent
+        return False
 
     def _get_heading_level(self, node) -> int:
         """Extract heading level from Tree-sitter heading node."""
@@ -146,14 +160,29 @@ class MarkdownParser:
         Compute end line of a heading section.
         Extent: from start_line to next heading of same/higher level (or EOF).
         Lines are 1-indexed.
+        Properly handles code fences: ignores # lines inside code blocks.
         """
         lines = content.splitlines()
+        in_code_fence = False
+        fence_delimiter = None
 
         for i in range(start_line, len(lines)):
             line = lines[i]
+            stripped = line.strip()
 
-            # Check if this line is a heading
-            if line.startswith("#"):
+            # Check for code fence markers (``` or ~~~)
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                if not in_code_fence:
+                    in_code_fence = True
+                    fence_delimiter = stripped[0]  # '`' or '~'
+                elif stripped.startswith(fence_delimiter * 3):
+                    in_code_fence = False
+                    fence_delimiter = None
+                # Skip further checks for this line
+                continue
+
+            # Only check for headings if NOT inside a code fence
+            if not in_code_fence and line.startswith("#"):
                 # Count leading #'s
                 heading_level = 0
                 for char in line:

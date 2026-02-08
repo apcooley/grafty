@@ -386,3 +386,77 @@ Result:
 | Future | PyPI-ready | Can distribute whenever needed |
 
 All decisions optimize for **clarity, speed, and simplicity** in development, with a clear upgrade path to distribution.
+
+---
+
+## Markdown Parser: Code Fence Boundary Detection (v0.5.1+)
+
+**Decision**: Markdown heading extents must properly account for code fences, and headings inside code fences should not be extracted.
+
+**Problem (v0.5.0)**:
+When computing the extent of a Markdown heading section, the parser looked for the next line starting with `#` to determine where the section ends. However:
+- Comments like `# This is a bash comment` inside code blocks (backtick or tilde-fenced) matched the heading pattern
+- This caused section extents to stop prematurely, leaving code blocks behind after replacement
+- Code comments were incorrectly extracted as heading nodes, causing selector ambiguity
+
+**Solution**:
+1. **Track Code Fence Context**: The `_compute_heading_extent()` method now maintains state for open/closed code fences using backticks (`` ` ``) and tildes (`~`).
+2. **Skip Lines Inside Fences**: When inside a fence, lines starting with `#` are ignored—they can't be headings.
+3. **Defensive Extraction**: Added `_is_inside_code_fence(node)` helper that checks parent nodes in the Tree-sitter AST for `fenced_code_block` context. The `_extract_headings()` method uses this to skip headings that are structurally inside code blocks.
+
+**Implementation Details**:
+
+```python
+def _compute_heading_extent(...) -> int:
+    """Compute end line, tracking code fence state."""
+    lines = content.splitlines()
+    in_code_fence = False
+    fence_delimiter = None
+    
+    for i in range(start_line, len(lines)):
+        line = lines[i]
+        stripped = line.strip()
+        
+        # Toggle fence state on fence markers
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            if not in_code_fence:
+                in_code_fence = True
+                fence_delimiter = stripped[0]
+            elif stripped.startswith(fence_delimiter * 3):
+                in_code_fence = False
+        
+        # Only check for headings if NOT in a fence
+        if not in_code_fence and line.startswith("#"):
+            # ... find next heading ...
+```
+
+**Defensive Layer**:
+```python
+def _is_inside_code_fence(node) -> bool:
+    """Verify node is not structurally inside a code block."""
+    current = node.parent
+    while current:
+        if current.type in ("fenced_code_block", "code_fence"):
+            return True
+        current = current.parent
+    return False
+```
+
+**Trade-offs**:
+- **Benefit**: Correct heading extents with code blocks; no spurious headings from comments; safe replacements
+- **Cost**: Minimal (simple state tracking, one parent traversal per heading)
+- **Edge Cases**: Nested code fences handled correctly; both backtick and tilde delimiters supported
+
+**Test Coverage** (v0.5.1):
+- ✅ Single-line code blocks in sections
+- ✅ Multi-line code blocks with proper extent calculation
+- ✅ No duplication on heading replacement
+- ✅ Bash/Python comments not extracted as headings
+- ✅ Markdown-like syntax inside code (e.g., `# Usage`) ignored
+- ✅ Mixed real headings and code comments disambiguated
+- ✅ Dogfooding: grafty can edit its own README without data corruption
+
+**Future Considerations**:
+- Indented code blocks (4+ spaces) not yet handled—can add if needed
+- HTML `<!-- -->` comments not special-cased—edge case unlikely
+- Language-specific grammar (e.g., nested backticks in Rust strings) out of scope

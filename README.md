@@ -179,3 +179,382 @@ def parse(self, data):
         if line.strip():
             results.append(self._parse_line(line))
     return results
+EOF
+
+# Apply the change
+grafty replace "src/main.py:py_method:parse" \
+  --file new_parse.py \
+  --apply --backup
+```
+
+### Step 4: Verify
+
+```bash
+# See what changed
+git diff src/main.py
+
+# Or re-show the node to confirm
+grafty show "src/main.py:py_method:parse"
+```
+
+**Done!** You just edited a structured piece of code safely and efficiently.
+
+---
+
+## Features & Capabilities
+
+### 📁 Supported Languages
+
+| Language | What You Can Edit | Example |
+|----------|-------------------|---------|
+| **Python** (.py) | Classes, methods, functions, standalone code | `file.py:py_function:parse_config` |
+| **JavaScript/TypeScript** (.js, .ts, .jsx, .tsx) | Functions, classes, methods, arrow functions | `app.ts:js_function:handler` |
+| **Go** (.go) | Functions, methods, types, structs | `main.go:go_function:main` |
+| **Rust** (.rs) | Functions, structs, impls, traits, macros | `lib.rs:rs_struct:DataProcessor` |
+| **Markdown** (.md) | Headings, sections, intro paragraphs | `README.md:md_heading:Installation` |
+| **Org-mode** (.org) | Headings, subtrees, intro paragraphs | `tasks.org:org_heading:Phase 1` |
+| **Clojure** (.clj/.cljs) | Namespaces, defs, macros | `core.clj:clj_defn:my_func` |
+
+### 🎯 Core Features
+
+**Structural Selectors** — Reference code by structure, not line numbers  
+```bash
+grafty show "src/main.py:py_function:validate"  # Stable, even if file changes
+```
+
+**Line Numbers (When You Need Them)** — Quick fixes with simple ranges  
+```bash
+grafty show "src/main.py:42"        # Single line
+grafty show "src/main.py:42-50"     # Range of lines
+```
+
+**Heading Preambles** — Edit section intros without destroying subsections (Markdown & Org-mode)  
+```bash
+# Edit just the intro text of a heading, preserve all subheadings
+grafty replace "README.md:md_heading_preamble:Installation" \
+  --text "# Installation\n\nNew intro here." \
+  --apply
+```
+
+**Pattern Search** — Find nodes by name pattern  
+```bash
+grafty search "*validate*"              # All validation functions
+grafty search "test_*" --path "tests/"  # All tests in tests/ directory
+grafty search "*handler*" --kind "js_function"  # JS handlers only
+```
+
+**Dry-Run Mode** — Always preview before applying  
+```bash
+grafty replace ... --dry-run  # Shows unified diff
+grafty replace ... --apply    # Apply if it looks good
+```
+
+**Atomic Writes** — No partial changes, no corruption  
+- Changes are written to temp file, then renamed (atomic)
+- Optional automatic backups (`.bak` files)
+- Safe to use even with long-running processes
+
+**Safety Guarantees** — Peace of mind when editing  
+```bash
+grafty replace ... --apply --backup          # Auto-backup
+grafty replace ... --dry-run                  # Preview first
+grafty check my.patch                         # Validate patches
+```
+
+---
+
+## Use Cases: Where grafty Shines
+
+### 🤖 LLM Agents & AI Workflows
+
+**Problem:** Your agent is writing code for a 500-line file. Show it just the function it needs to edit:
+
+```bash
+# Instead of context bloat, agent gets bounded output
+grafty show "src/processing.py:py_function:process_data"
+
+# Agent writes new implementation
+# You apply it
+grafty replace "src/processing.py:py_function:process_data" \
+  --text "$(agent_output)" --apply --backup
+```
+
+**Benefits:**
+- Smaller context window (save 100+ tokens per operation)
+- Agents stay focused on one piece at a time
+- Patch diff makes changes auditable before applying
+
+### 📋 Batch Refactoring
+
+**Problem:** You need to rename a function across 10 files and update all callers.
+
+```bash
+# Find all calls to old_name
+grafty search "old_name*"
+
+# Replace them systematically
+grafty replace "src/main.py:py_function:old_name" --file new_impl.py --apply
+grafty replace "src/utils.py:py_function:old_name" --file new_impl.py --apply
+# ... (repeatable, safe)
+```
+
+**Benefits:**
+- No need for IDE refactoring (works anywhere: CLI, remote, scripts)
+- Every change generates a visible diff
+- Easy to automate or batch
+
+### ✏️ Code Review & Documentation
+
+**Problem:** You need to update docstrings or comments in Markdown without affecting code examples.
+
+```bash
+# Edit just the intro of a section (keep examples, code blocks intact)
+grafty show "DESIGN.md:md_heading_preamble:Architecture"
+grafty replace "DESIGN.md:md_heading_preamble:Architecture" \
+  --file new_intro.txt --apply
+```
+
+**Benefits:**
+- Edit documentation structure without touching nested examples
+- Precise, bounded changes
+- Great for collaborative docs (less merge conflicts)
+
+### 🔧 Integration with CI/CD & Version Control
+
+**Problem:** You're building an auto-fixer that applies changes to multiple repos.
+
+```bash
+# grafty generates clean unified diffs
+grafty replace "src/api.py:py_function:old_handler" \
+  --file new_handler.py --patch-out my_changes.patch
+
+# Apply the patch in CI/CD
+git apply my_changes.patch
+
+# Or review first
+git apply --check my_changes.patch
+```
+
+**Benefits:**
+- Standard unified diff format (works with `git apply`, `patch` command, etc.)
+- Dry-run lets you validate before pushing
+- Integrates with existing git workflows
+
+---
+
+## Full Documentation
+
+Once you're familiar with the basics, check these for deeper knowledge:
+
+- **[USAGE.md](./USAGE.md)** — Detailed command reference with all flags and options
+- **[ARCHITECTURE_DECISIONS.md](./ARCHITECTURE_DECISIONS.md)** — Why grafty was built this way (for the curious)
+- **[CHANGELOG.md](./CHANGELOG.md)** — Version history and feature releases
+- **[DESIGN.md](./DESIGN.md)** — Original architecture sketches and design rationale
+
+For development:
+
+```bash
+cd ~/source/grafty
+uv sync                    # Install dev dependencies
+uv run pytest tests/ -v    # Run tests (all 37 passing)
+uv run ruff check grafty/  # Lint code
+```
+
+---
+
+## FAQ
+
+### ❓ Is grafty safe to use?
+
+**Absolutely.** Safety is a core design principle:
+
+✅ **Atomic writes** — Changes written to temp file, then renamed (no partial writes)  
+✅ **Dry-run mode** — Always preview with `--dry-run` before applying  
+✅ **Automatic backups** — Optional `--backup` creates `.bak` files  
+✅ **Patch validation** — `grafty check my.patch` uses `git apply --check`  
+✅ **Clear diffs** — Every change shows unified diff so you can audit it  
+
+**Golden rule:** Use `--dry-run` first, review the diff, then apply if it looks good.
+
+### ❓ What if I make a mistake?
+
+**Easy recovery:**
+
+1. **Backup exists** — If you used `--backup`, restore from `.bak`:
+   ```bash
+   cp src/main.py.bak src/main.py
+   ```
+
+2. **Git history** — If it's in a git repo:
+   ```bash
+   git checkout src/main.py  # Revert the whole file
+   git diff                  # See what changed (before your edit)
+   ```
+
+3. **Try again** — Use `--dry-run` next time to preview first.
+
+### ❓ Can I use grafty with my LLM?
+
+**Yes!** grafty is designed for LLM workflows:
+
+```python
+# Pseudocode: LLM workflow with grafty
+current_state = subprocess.run([
+    "grafty", "show", 
+    "src/main.py:py_function:validate"
+]).stdout
+
+prompt = f"""
+Here's the current implementation:
+{current_state}
+
+Make it better.
+"""
+
+new_code = llm.generate(prompt)
+
+# Apply the change
+subprocess.run([
+    "grafty", "replace",
+    "src/main.py:py_function:validate",
+    "--text", new_code,
+    "--apply", "--backup"
+])
+```
+
+**Benefits for LLM use:**
+- Bounded output (agent sees exactly what it needs to edit)
+- Stable selectors (function name doesn't change when file does)
+- Clean diffs for review
+- Token-efficient (show 20 lines, not 500)
+
+### ❓ What about unsupported file types?
+
+grafty skips them, but you can still use **line-based editing** as a fallback:
+
+```bash
+# Works on any text file
+grafty show "unknown.txt:42-50"
+grafty replace "unknown.txt:42-50" --text "new content" --apply
+```
+
+For maximum impact, focus grafty on code files (Python, JS, Go, Rust, Markdown, Org).
+
+### ❓ Why not just use `sed` or my IDE's refactoring?
+
+**sed** works on patterns; **grafty understands structure**:
+- `sed -i 's/old_name/new_name/g'` might rename variables, function names, comments—too broad
+- `grafty show "file.py:py_function:old_name"` is precise—it's definitely that function
+- `grafty replace` handles nested scopes correctly (methods inside classes)
+
+**IDE refactoring** is great locally; **grafty works everywhere**:
+- No IDE installation needed
+- Works on remote machines, in CI/CD, in containers
+- Scriptable for batch operations
+- Works across the web via simple CLI calls
+
+**Use both!** IDE for interactive work, grafty for automation and edge cases.
+
+### ❓ Does grafty support merge conflicts?
+
+Yes. grafty outputs standard **unified diffs**:
+
+```bash
+grafty replace "src/main.py:py_function:handler" \
+  --file new_impl.py \
+  --patch-out my_changes.patch
+
+# my_changes.patch is a standard unified diff
+# Use standard merge tools:
+git apply my_changes.patch
+patch < my_changes.patch
+```
+
+If conflicts arise, use git's 3-way merge or your favorite merge tool.
+
+### ❓ How does grafty compare to Language Servers (LSP)?
+
+| Feature | grafty | LSP |
+|---------|--------|-----|
+| **Setup** | Single install, works everywhere | Per-language, requires LSP server |
+| **Portability** | CLI, works remote, in containers | IDE-centric |
+| **Symbol knowledge** | Tree-sitter (syntax-based) | Compiler-aware (semantic) |
+| **For LLMs** | Perfect (bounded output) | Overkill (better for IDE) |
+| **Batch editing** | ✅ Great | ❌ Not designed for this |
+| **Type awareness** | Limited (syntax only) | Full (compiler-aware) |
+
+**Bottom line:** grafty is for editing; LSP is for IDE integration. Use grafty for agents and batch work.
+
+### ❓ How do I get help or report a bug?
+
+- **Questions?** Check `USAGE.md` or run `grafty --help`
+- **Bug report?** Open an issue on [GitHub](https://github.com/apcooley/grafty)
+- **Feature request?** See the [Roadmap](#roadmap) for what's planned
+
+---
+
+## Roadmap
+
+grafty is actively developed. Here's what's coming:
+
+**Current:** Phase 3 ✅ **Complete in v0.4.0** (Line-number editing, error messages, query language)
+
+**Future phases:** See **[docs/ROADMAP.md](./docs/ROADMAP.md)** for phases 4–7 (safety, visualization, performance, extended languages)
+
+---
+
+## Getting Started
+
+**Right now, you can:**
+
+1. ✅ Install grafty (`pip install -e .` or use system install)
+2. ✅ Index your codebase (`grafty index .`)
+3. ✅ Show bounded snippets (`grafty show "file.py:py_function:func"`)
+4. ✅ Make safe edits (`grafty replace ... --dry-run --apply`)
+5. ✅ Search for code (`grafty search "*pattern*"`)
+
+**Pick a file, try it:**
+
+```bash
+# Pick any Python, JS, Go, Rust, Markdown, or Org file
+grafty index myfile.py
+
+# Pick a function or class name
+grafty show "myfile.py:py_function:my_func"
+
+# Try editing it
+grafty replace "myfile.py:py_function:my_func" \
+  --text "def my_func():\n    return 42" \
+  --dry-run
+```
+
+**Questions?** Check `USAGE.md` or run `grafty --help`.
+
+---
+
+## Contributing
+
+**Contributions welcome!** See **[docs/CONTRIBUTING.md](./docs/CONTRIBUTING.md)** for:
+- How to set up your development environment
+- Starter tasks organized by complexity (Low/Medium/High)
+- How to run tests and validate your work
+- The design philosophy behind grafty
+
+**Good starter issues:**
+- Bug reports with reproducers
+- Documentation improvements
+- Performance profiling
+- Real-world use case feedback
+
+**Want to add a language?** Check the phase breakdown in [docs/ROADMAP.md](./docs/ROADMAP.md) (Phase 7).
+
+---
+
+## License
+
+MIT — Use freely, modify, distribute. See LICENSE for details.
+
+---
+
+**Happy editing!** 🎯  
+Made for humans and LLMs alike.

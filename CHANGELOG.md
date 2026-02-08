@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.1] - 2026-02-08 (Hotfix)
+
+### 🐛 Bug Fixes
+
+**Bug #1: md_heading Replacement Appended Instead of Replaced**
+- **Issue**: When replacing a Markdown heading that contains code blocks, the `end_line` calculation didn't include closing code fences (`\`\`\``). This caused replacements to stop prematurely, leaving old code in the file.
+- **Root Cause**: The `_compute_heading_extent()` function checked if lines started with `#` without accounting for code fences. A comment like `# This is a bash comment` inside a code block was treated as a heading, causing extent to stop early.
+- **Fix**: Updated `_compute_heading_extent()` to track code fence boundaries (`` ` `` and `~` delimiters) and ignore `#` lines that are inside code fences.
+- **Impact**: Heading replacements now correctly include full code blocks. No more data corruption on edits.
+
+**Bug #2: Markdown Parser Treated Code Comments as Headings**
+- **Issue**: Bash/Python comments starting with `#` inside code fences were being extracted as `md_heading` nodes, causing "Ambiguous selector" errors.
+- **Root Cause**: Tree-sitter parsing was correct, but there was no defensive filter in `_extract_headings()` to skip headings that are children of `fenced_code_block` nodes.
+- **Fix**: Added `_is_inside_code_fence(node)` helper that traverses parent nodes to detect code fence context. Updated `_extract_headings()` to skip headings inside code fences.
+- **Impact**: Code comments no longer pollute the heading index. Selectors are unambiguous.
+
+**Tests Added**: 7 new regression tests in `tests/test_markdown_parser_bugs.py`:
+- Heading replacement with single-line code blocks
+- Heading replacement with multi-line code blocks  
+- Heading replacement produces no duplication
+- Code fence with bash comments not extracted as headings
+- Code fence with markdown-like syntax (` # `) not extracted
+- Nested code fences with comments handled correctly
+- Mixed real headings and code comments have no ambiguity
+
+All 117 existing tests remain passing. Total: 124 tests.
+
+---
+
 ## [0.5.0] - 2026-02-08
 
 ### 🎯 Phase 4.1: Atomic Multi-File Patches
