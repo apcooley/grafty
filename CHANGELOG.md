@@ -1,5 +1,83 @@
 # Changelog
 
+## [0.5.0] - 2026-02-08
+
+### 🎯 Phase 4.1: Atomic Multi-File Patches
+
+**Problem**: Users need to apply coordinated changes across multiple files atomically — if any file fails validation or writing, all changes are rolled back. Manual synchronization is error-prone.
+
+**Solution**: 
+- `PatchSet` class for managing and applying multiple file mutations
+- Two input formats: simple line-based or JSON with metadata
+- Atomic writes: all succeed or all rollback via temp files + rename
+- Validation before any writes: detect conflicts, missing files, invalid line ranges
+- Dry-run by default showing unified diffs before applying
+- Optional `.bak` backups for recovery
+
+**Implementation** (`grafty/multi_file_patch.py`):
+- `FileMutation` dataclass for individual mutations
+- `PatchSet.add_mutation()` / `load_from_json()` / `load_from_simple_format()` for building patches
+- `PatchSet.validate_all()` checks all files and line numbers before applying
+- `PatchSet.generate_diffs()` creates unified diffs for preview (dry-run)
+- `PatchSet.apply_atomic()` writes atomically with rollback on error
+- `PatchSetResult` provides structured error/success reporting
+
+**CLI**:
+```bash
+# Dry-run (preview all changes)
+grafty apply-patch my.patch
+
+# Apply atomically
+grafty apply-patch my.patch --apply --backup
+
+# JSON format with metadata
+grafty apply-patch my.patch --format json --apply
+```
+
+**Patch Formats**:
+
+Simple (one mutation per line):
+```
+file_path:operation_kind:start_line:end_line[:text]
+src/main.py:replace:10:12:def new_func(): pass
+```
+
+JSON (with descriptions):
+```json
+[
+  {
+    "file_path": "src/main.py",
+    "operation_kind": "replace",
+    "start_line": 10,
+    "end_line": 12,
+    "text": "def new_func(): pass",
+    "description": "Update main function"
+  }
+]
+```
+
+**Features**:
+- ✅ Atomic writes (temp file + rename, not in-place)
+- ✅ Validation before any writes
+- ✅ Dry-run mode shows unified diffs
+- ✅ Backup creation (.bak files)
+- ✅ Rollback on error (restores from backups)
+- ✅ Handles unicode, CRLF normalization, large files
+- ✅ Merge conflict detection (overlapping mutations)
+- ✅ Clear error reporting with context
+
+**Testing**: 39 comprehensive tests
+- Multi-file success scenarios (5 files atomically)
+- Validation edge cases (invalid lines, non-existent files)
+- Backup creation and recovery
+- Unicode and large file handling
+- Dry-run verification (no mutations)
+- Integration tests (validate → dry-run → apply workflow)
+
+**Backward Compatibility**: Zero breaking changes. Existing v0.4 API and CLI unchanged.
+
+---
+
 ## [0.4.0] - 2026-02-08
 
 ### 🎯 Phase 3: Core Gaps Complete

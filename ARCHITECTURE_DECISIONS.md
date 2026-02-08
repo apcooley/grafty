@@ -281,6 +281,99 @@ Available: MyClass (1-20), helper (22-35), process (35-70)
 
 ---
 
+## Atomic Multi-File Patching Strategy (Phase 4.1)
+
+**Decision**: Use temporary files + atomic rename for multi-file atomicity, with backup-based rollback.
+
+**Problem**: Coordinating mutations across multiple files safely. If file #1 succeeds but file #2 fails, how do we rollback file #1?
+
+**Alternatives Considered**:
+1. **In-place edits** — Fast but unsafe. File #1 modified; file #2 fails; file #1 corrupted.
+2. **Database transactions** — Powerful but overkill for file system. Filesystem lacks ACID guarantees.
+3. **Git worktree snapshots** — Requires git repo, heavyweight for small patches.
+4. **Temp files + rename** ← **CHOSEN**: Simple, atomic at OS level, works offline.
+
+**Our Approach** (Three Phases):
+1. **Preparation Phase** (no I/O to actual files):
+   - Create `Editor` for each file
+   - Apply all mutations in-memory
+   - If any mutation fails, stop (no writes yet)
+   
+2. **Write Phase** (atomic writes):
+   - Create `.bak` backups (if requested)
+   - Create temp files with modified content in same directory
+   - **Atomically rename** temp → original (atomic OS operation)
+   - If rename fails, .bak files still exist for manual recovery
+   
+3. **Cleanup Phase**:
+   - Success: leave `.bak` files (user decides when to delete)
+   - Failure: attempt rollback from `.bak` files
+
+**Why Atomic Rename?**
+- `os.replace()` is atomic on all platforms (Windows, Linux, macOS)
+- Cannot be partially applied — succeeds completely or fails completely
+- Much faster than copying (true rename on same filesystem)
+- Works offline (doesn't require git, network, or database)
+
+**Why Temp Files in Same Directory?**
+- Guarantees same filesystem (rename atomic only on same filesystem)
+- Works across mounted disks (on Linux: same `/dev`)
+- Handles NFS, CIFS, cloud storage correctly
+
+**Error Handling**:
+- If any mutation prep fails → return error, no writes
+- If temp file creation fails → cleanup temps, return error
+- If rename fails → return error, `.bak` files still exist for recovery
+- Overlap detection → warning (may be intentional, user decides)
+
+**Example Scenario**:
+```
+Before:
+  file1.py (10 lines)
+  file2.py (10 lines)
+  file3.py (10 lines) [INVALID LINE 100]
+
+Step 1: Validate all — finds file3 error, stops ✓
+Step 2: No temp files created ✓
+Result: All files unchanged ✓
+
+Before:
+  file1.py, file2.py, file3.py
+
+Step 1: Validate all — passes ✓
+Step 2: Prep mutations in-memory — all succeed ✓
+Step 3: Create temps, backups
+        temp.abc123, file1.py.bak
+        temp.def456, file2.py.bak
+        temp.ghi789, file3.py.bak
+Step 4: Rename temps → originals
+        temp.abc123 → file1.py ✓
+        temp.def456 → file2.py ✓
+        rename fails on file3 ← System error (disk full, permissions)
+        
+Result:
+  file1.py — MODIFIED ✓
+  file2.py — MODIFIED ✓
+  file3.py — ORIGINAL (rename failed)
+  file*.bak — All exist for manual recovery
+```
+
+**Trade-offs**:
+- **Benefit**: Simple, atomic, works offline, no external deps
+- **Cost**: Requires disk space for temp + backup files
+- **Mitigation**: Document cleanup; auto-delete old backups possible future feature
+
+**Testing**:
+- ✅ Single file success
+- ✅ Multi-file success (5 files atomically)
+- ✅ Validation failure (no writes)
+- ✅ Partial success (file 1-2 succeed, 3 fails — but all had temps)
+- ✅ Backup creation and recovery
+- ✅ Unicode and CRLF handling
+- ✅ Large files (1000+ lines)
+
+---
+
 ## Summary
 
 | Aspect | Choice | Rationale |

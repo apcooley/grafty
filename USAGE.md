@@ -127,6 +127,45 @@ uv run grafty insert "src/main.py:py_class:MyClass" \
 uv run grafty check my.patch
 ```
 
+### Apply atomic multi-file patches (Phase 4.1)
+```bash
+# Dry-run (show diffs without applying)
+uv run grafty apply-patch my.patch
+
+# Apply patch (with backups)
+uv run grafty apply-patch my.patch --apply --backup
+
+# Use JSON format instead of simple format
+uv run grafty apply-patch my.patch --format json --apply
+
+# Patch file formats:
+
+# Simple format (one mutation per line):
+# file_path:operation_kind:start_line:end_line[:text]
+cat > my.patch << 'EOF'
+src/main.py:replace:10:12:def new_func(): pass
+src/config.py:insert:5:5:    DEBUG = False
+src/old.py:delete:1:10:
+EOF
+
+# JSON format:
+cat > my.patch << 'EOF'
+[
+  {
+    "file_path": "src/main.py",
+    "operation_kind": "replace",
+    "start_line": 10,
+    "end_line": 12,
+    "text": "def new_func(): pass",
+    "description": "Update main function"
+  }
+]
+EOF
+
+# Apply with specific repository root
+uv run grafty apply-patch my.patch --apply --repo-root ~/myproject
+```
+
 ## Development
 
 ### Run tests

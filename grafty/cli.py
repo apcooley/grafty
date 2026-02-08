@@ -13,6 +13,7 @@ from .selectors import Resolver
 from .editor import Editor
 from .patch import git_apply_check, format_patch_summary
 from .utils import truncate_text
+from .multi_file_patch import PatchSet
 
 
 @click.group()
@@ -338,26 +339,10 @@ def insert(
         click.echo("Error: Must provide --text or --file", err=True)
         sys.exit(1)
 
-    # TODO: Implement insert command with proper mutation
-    # insertion_text = text or Path(file).read_text(encoding="utf-8")
-    #
-    # if line:
-    #     # Absolute line insertion
-    #     pass
-    # elif selector:
-    #     # Relative to selector
-    #     indexer = Indexer()
-    #     indices = indexer.index_directory(repo_root)
-    #     resolver = Resolver(indices)
-    #     result = resolver.resolve(selector)
-    #
-    #     if not result.is_resolved():
-    #         click.echo(f"Error: {result.error or 'Ambiguous selector'}", err=True)
-    #         sys.exit(1)
-    #
-    #     node = result.exact_match
-
-    click.echo("insert command: TODO (full implementation coming soon)")
+    # Insert command is Phase 5+ (future work)
+    # See ROADMAP.md for details
+    click.echo("insert command: Phase 5+ (future implementation)", err=True)
+    click.echo("See ROADMAP.md for Phase 5 features")
 
 
 @cli.command()
@@ -444,6 +429,100 @@ def check(patch_file: str, repo_root: str) -> None:
         click.echo("✗ Patch validation failed:", err=True)
         click.echo(output, err=True)
         sys.exit(1)
+
+
+@cli.command()
+@click.argument("patch_file", type=click.Path(exists=True))
+@click.option("--format", type=click.Choice(["json", "simple"]), default="simple",
+              help="Patch file format (simple: file:op:start:end:text, json: list of mutations)")
+@click.option("--apply", is_flag=True, help="Apply changes to files (default: dry-run)")
+@click.option("--backup", is_flag=True, help="Create .bak backups before applying")
+@click.option("--repo-root", type=click.Path(), default=".", help="Repository root")
+@click.option("--force", is_flag=True, help="Skip drift validation")
+def apply_patch(patch_file: str, format: str, apply: bool, backup: bool, repo_root: str, force: bool) -> None:
+    """
+    Apply atomic multi-file patches (Phase 4.1).
+
+    Supports two patch file formats:
+
+    1. Simple format (default, one per line):
+       file_path:operation_kind:start_line:end_line[:text]
+
+       Example:
+         src/main.py:replace:10:12:def new_func(): pass
+         src/config.py:insert:5:5:    enabled = True
+         src/old.py:delete:1:10:
+
+    2. JSON format (--format json):
+       [
+         {
+           "file_path": "src/main.py",
+           "operation_kind": "replace",
+           "start_line": 10,
+           "end_line": 12,
+           "text": "def new_func(): pass",
+           "description": "Update main function"
+         }
+       ]
+
+    Examples:
+    - grafty apply-patch patch.txt                    # Dry-run, simple format
+    - grafty apply-patch patch.json --format json --apply  # Apply JSON patch
+    - grafty apply-patch patch.txt --apply --backup   # Apply with backups
+    """
+    patch_set = PatchSet()
+
+    # Load patch file
+    patch_content = Path(patch_file).read_text(encoding="utf-8")
+
+    try:
+        if format == "json":
+            patch_set.load_from_json(patch_content)
+        else:  # simple format
+            patch_set.load_from_simple_format(patch_content)
+    except ValueError as e:
+        click.echo(f"Error parsing patch file: {e}", err=True)
+        sys.exit(1)
+
+    if not patch_set.mutations:
+        click.echo("Error: No mutations found in patch file", err=True)
+        sys.exit(1)
+
+    # Always validate first
+    validation = patch_set.validate_all(repo_root)
+    if not validation.success:
+        click.echo(str(validation), err=True)
+        sys.exit(1)
+
+    # Generate and show diffs (dry-run)
+    diffs = patch_set.generate_diffs(repo_root)
+    if not diffs.success:
+        click.echo(str(diffs), err=True)
+        sys.exit(1)
+
+    # Show diffs
+    click.echo("=" * 70)
+    click.echo(f"Multi-file patch preview ({len(diffs.diffs)} file(s))")
+    click.echo("=" * 70)
+    for file_path, diff in sorted(diffs.diffs.items()):
+        click.echo(diff)
+
+    click.echo("=" * 70)
+    click.echo(str(diffs))
+    click.echo("=" * 70)
+
+    # Apply if flag is set
+    if apply:
+        result = patch_set.apply_atomic(repo_root=repo_root, backup=backup, force=force)
+        if result.success:
+            click.echo("\n✓ Patch applied successfully")
+            click.echo(str(result))
+        else:
+            click.echo("\n✗ Patch application failed", err=True)
+            click.echo(str(result), err=True)
+            sys.exit(1)
+    else:
+        click.echo("\n(Use --apply to apply changes)")
 
 
 def main() -> None:
