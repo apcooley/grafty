@@ -64,11 +64,29 @@ uv run grafty index src/
 
 ### Show a node
 ```bash
+# By structural selector
 uv run grafty show "src/main.py:py_function:parse_config" --max-lines 50
+
+# By line number (Phase 3)
+uv run grafty show "src/main.py:42"          # Single line
+uv run grafty show "src/main.py:42-50"       # Line range
+```
+
+### Search for nodes (Phase 3)
+```bash
+# Find all validation functions
+uv run grafty search "*validate*"
+
+# Find all tests in tests/ directory
+uv run grafty search "test_*" --path "tests/"
+
+# Find all Python methods (not functions)
+uv run grafty search "*" --kind "py_method" --json
 ```
 
 ### Replace a function
 ```bash
+# By structural selector
 uv run grafty replace "src/main.py:py_function:old_impl" \
   --file new_impl.py \
   --dry-run  # Preview first
@@ -76,11 +94,32 @@ uv run grafty replace "src/main.py:py_function:old_impl" \
 uv run grafty replace "src/main.py:py_function:old_impl" \
   --file new_impl.py \
   --apply --backup  # Apply & create .bak
+
+# By line numbers (Phase 3)
+uv run grafty replace "src/main.py:42-50" \
+  --text "new implementation" \
+  --apply --backup
 ```
 
 ### Delete a node
 ```bash
+# By structural selector
 uv run grafty delete "src/utils.py:py_function:unused_fn" --apply
+
+# By line numbers (Phase 3)
+uv run grafty delete "src/config.py:42-50" --apply --backup
+```
+
+### Insert text
+```bash
+# At absolute line
+uv run grafty insert --line 42 --text "new line" --apply
+
+# Relative to a node
+uv run grafty insert "src/main.py:py_class:MyClass" \
+  --inside-end \
+  --text "def new_method(): pass" \
+  --apply
 ```
 
 ### Validate a patch

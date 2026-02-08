@@ -114,6 +114,9 @@ grafty check my.patch
 | Type | Features | Example |
 |------|----------|---------|
 | **Python** (.py) | Classes, methods, functions | `file.py:py_class:MyClass` |
+| **JavaScript/TypeScript** (.js, .ts, .jsx, .tsx) | Functions, classes, methods | `app.ts:js_function:handler` |
+| **Go** (.go) | Functions, methods, types | `main.go:go_function:main` |
+| **Rust** (.rs) | Functions, structs, impls, traits, macros | `lib.rs:rs_impl:DataProcessor` |
 | **Markdown** (.md) | Headings, sections, **preambles** | `file.md:md_heading:Title` |
 | **Org-mode** (.org) | Headings, subtrees, **preambles** | `file.org:org_heading:Title` |
 | **Clojure** (.clj/.cljs) | Namespaces, defs, macros | `file.clj:clj_defn:my_func` |
@@ -176,6 +179,125 @@ file.org (18 nodes)
 
 ---
 
+## Line-Number Editing (Phase 3.1)
+
+**New in v0.4.0**: Edit specific lines without needing to know structural context.
+
+### Single Line
+
+```bash
+# Replace line 42
+grafty replace "file.py:42" --text "new_content" --apply
+
+# Show line 42
+grafty show "file.py:42"
+
+# Delete line 42
+grafty delete "file.py:42" --apply
+```
+
+### Line Ranges
+
+```bash
+# Replace lines 42-50
+grafty replace "file.py:42-50" --text "new_impl" --apply
+
+# Show lines 42-50
+grafty show "file.py:42-50"
+
+# Delete lines 42-50
+grafty delete "file.py:42-50" --apply
+```
+
+### When to Use Line Numbers
+- Quick fixes and emergency edits
+- When you're working from a diff or stack trace
+- Complementing existing line-based workflows (sed, awk)
+- When structural selectors are overkill for simple changes
+
+---
+
+## Query Language / Search (Phase 3.3)
+
+**New in v0.4.0**: Find nodes by pattern matching.
+
+### Search by Name Pattern
+
+```bash
+# Find all functions/methods containing "validate"
+grafty search "*validate*"
+# Output:
+# Found 5 nodes matching '*validate*':
+# [py_function    ] validate_email      src/validators.py:45-60
+# [py_function    ] validate_config     src/config.py:20-35
+# [py_method      ] validate            src/User.py:100-120
+# ...
+
+# Find all test functions
+grafty search "test_*"
+
+# Find all ending with "_error"
+grafty search "*_error"
+```
+
+### Search with Path Filter
+
+```bash
+# Find all validation functions in src/
+grafty search "*validate*" --path "src/"
+
+# Find all handlers in handlers/ directory
+grafty search "handle_*" --path "src/handlers/"
+
+# Works with glob patterns
+grafty search "*process*" --path "src/**/"
+```
+
+### Search with Kind Filter
+
+```bash
+# Find all methods (not functions) containing "process"
+grafty search "*process*" --kind "py_method"
+
+# Find all structs containing "data"
+grafty search "*data*" --kind "rs_struct"
+
+# Find all Go functions
+grafty search "*" --kind "go_function"
+```
+
+### JSON Output
+
+```bash
+# Get results as JSON for scripting
+grafty search "test_*" --json
+# Output:
+# {
+#   "pattern": "test_*",
+#   "count": 12,
+#   "nodes": [
+#     {
+#       "id": "abc123...",
+#       "name": "test_parse",
+#       "kind": "py_function",
+#       "path": "tests/test_parser.py",
+#       "start_line": 42,
+#       "end_line": 65
+#     },
+#     ...
+#   ]
+# }
+```
+
+### Patterns Supported
+- `*pattern` — ends with "pattern"
+- `pattern*` — starts with "pattern"
+- `*pattern*` — contains "pattern"
+- `start*end` — starts with "start", ends with "end"
+- `*` — all nodes (useful with --kind filter)
+
+---
+
 ## Selectors
 
 Selectors identify nodes. Four formats:
@@ -225,38 +347,82 @@ grafty index . --json  # JSON output
 Display a node's content (bounded output).
 
 ```bash
+# By structural selector
 grafty show "file.py:py_function:my_func"
-grafty show "file.py:py_function:my_func" --max-lines 50 --max-chars 2000
-grafty show "file.py:py_function:my_func" --json
+
+# By line numbers (Phase 3)
+grafty show "file.py:42"
+grafty show "file.py:42-50"
+
+# With options
+grafty show "file.py:py_function:my_func" --max-lines 50 --max-chars 2000 --json
 ```
 
 **Flags**: `--max-lines`, `--max-chars`, `--json`, `--repo-root`
+
+### search
+Find nodes by pattern matching (Phase 3.3).
+
+```bash
+# Search by name pattern
+grafty search "*validate*"
+
+# With path filter
+grafty search "*process*" --path "src/"
+
+# With kind filter
+grafty search "*handler*" --kind "py_function"
+
+# JSON output
+grafty search "test_*" --json
+```
+
+**Flags**: `--path`, `--kind`, `--json`, `--repo-root`
 
 ### replace
 Replace a node's content.
 
 ```bash
-grafty replace "file.py:py_function:old" --text "def old(): return 42" --dry-run
-grafty replace "file.py:py_function:old" --file new.py --apply --backup
+# By structural selector
+grafty replace "file.py:py_function:old" --text "def old(): return 42" --apply
+
+# By line numbers (Phase 3)
+grafty replace "file.py:42-50" --file new_impl.py --apply
+
+# Dry-run mode (preview before applying)
+grafty replace "file.py:py_function:old" --file new.py --dry-run
 ```
 
 **Flags**: `--text`, `--file`, `--dry-run`, `--apply`, `--backup`, `--force`, `--patch-out`, `--repo-root`
 
 ### insert
-Insert text at a line or relative to a node (in development).
+Insert text at a line or relative to a node.
 
 ```bash
-grafty insert "file.py:py_class:MyClass" --inside-end --text "def new_method(self): pass"
+# Absolute line insertion
+grafty insert --line 42 --text "new_line" --apply
+
+# Relative to selector
+grafty insert "file.py:py_class:MyClass" --inside-end --text "def new_method(): pass" --apply
 ```
+
+**Flags**: `--line`, `--before`, `--after`, `--inside-start`, `--inside-end`, `--text`, `--file`, `--apply`, `--dry-run`, `--backup`, `--patch-out`, `--repo-root`
 
 ### delete
-Delete a node.
+Delete a node or line range.
 
 ```bash
-grafty delete "file.py:py_function:unused" --apply --backup
+# By structural selector
+grafty delete "file.py:py_function:unused" --apply
+
+# By line numbers (Phase 3)
+grafty delete "file.py:42-50" --apply --backup
+
+# Dry-run to preview
+grafty delete "file.py:py_function:unused" --dry-run
 ```
 
-**Flags**: `--apply`, `--backup`, `--dry-run`, `--force`, `--patch-out`
+**Flags**: `--apply`, `--backup`, `--dry-run`, `--force`, `--patch-out`, `--repo-root`
 
 ### check
 Validate a patch file.
@@ -406,42 +572,40 @@ grafty replace "tasks.org:org_heading_preamble:Phase 1" \
 
 Grafty is designed around **boundaries**: every feature is precise, safe, and doesn't bleed into others. This roadmap reflects lessons learned from Phase 1 & 2 development.
 
-### Phase 3: Core Gaps (Next)
+### Phase 3: Core Gaps ✅ Complete
 
-These features unblock real use cases discovered during development.
+**Status**: All three Phase 3 features shipped in v0.4.0!
 
-#### 3.1: Line-Number Editing
-- **Why**: Handles ~20% of edit requests (quick patches, emergency fixes, diff-based workflows)
+#### 3.1: Line-Number Editing ✅
 - **What**: Support `grafty replace file.py:42-50 --text "..."`
-- **Impact**: Makes grafty complement line-based tools (sed, awk) instead of replacing them
-- **Complexity**: Low (leverage existing patch infrastructure)
-- **Status**: Planned
+- **Selector formats**: `file.py:42` (single) and `file.py:42-50` (range)
+- **Works with**: replace, show, delete, insert --line
+- **Impact**: Complements structural editing; handles quick fixes and diff-based workflows
+- **Status**: Implemented and tested
 
-#### 3.2: Improved Error Messages
-- **Why**: Current errors are vague ("No node found matching...")
-- **What**: 
-  - Show candidates when fuzzy match fails
-  - Explain why selector didn't resolve
-  - Suggest similar names
+#### 3.2: Improved Error Messages ✅
+- **What**: Show candidates and helpful context on selector failures
+- **Features**: 
+  - Top 10 candidates shown when fuzzy match finds multiple
+  - Context about available nodes (name, line range) when selector doesn't resolve
+  - Clear error messages explaining how to disambiguate
 - **Example**: 
   ```
-  Error: No py_function named 'proceess' found.
-  Did you mean: process, process_raw, process_line?
-  (Searched in src/main.py)
+  Error: No node found in src/main.py lines 42-50.
+  Available: MyClass (1-20), helper (22-35), process (35-70)
   ```
-- **Impact**: Faster debugging, better UX for interactive use
-- **Complexity**: Low (enhance `selectors.py`)
-- **Status**: Planned
+- **Status**: Implemented with improved UX
 
-#### 3.3: Query Language for Finding Code
-- **Why**: Current workflow requires knowing exact names (`py_function:process`)
-- **What**: Regex/pattern matching on node names and kinds
-  - `grafty show "src/:py_method:*validate*"` → all validation methods
-  - `grafty index . | grep "py_class:Data.*"`
-  - `grafty search "rs_impl:.*Error.*"` → error impl blocks
-- **Impact**: Enables "find all X" workflows without manual inspection
-- **Complexity**: Medium (add filter/search command)
-- **Status**: Planned
+#### 3.3: Query Language / Search ✅
+- **What**: Pattern matching on node names
+- **Command**: `grafty search <pattern> [--path <glob>] [--kind <kind>] [--json]`
+- **Patterns**: `*validate*`, `test_*`, `*_error`, etc. (fnmatch glob patterns)
+- **Impact**: Discover code without knowing exact names; enable "find all X" workflows
+- **Examples**:
+  - `grafty search "*validate*"` → all validation functions/methods
+  - `grafty search "test_*" --path "tests/"` → all tests
+  - `grafty search "*handler*" --kind "js_function"` → JS handlers
+- **Status**: Fully implemented
 
 ### Phase 4: Safety & Collaboration
 
@@ -596,6 +760,14 @@ uv run pytest tests/ -v
 ---
 
 ## Changelog
+
+**v0.4.0** (2026-02-08) — Phase 3 Complete ✅
+- ✨ **Line-number editing**: `file.py:42` and `file.py:42-50` selectors
+- ✨ **Improved error messages**: Candidates + context on selector failures
+- ✨ **Query language**: `grafty search` command with glob patterns
+- 🧪 24 new tests for Phase 3 (78 total passing)
+- 📚 Updated documentation with Phase 3 examples
+- 🎯 All Phase 3 goals achieved: safe line editing, better discovery, discoverable selectors
 
 **v0.3.0** (2026-02-08)
 - ✨ Multi-language support: JavaScript/TypeScript, Go, Rust

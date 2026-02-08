@@ -4,38 +4,137 @@
 
 ### 🎯 Phase 3: Core Gaps Complete
 
-#### 1. Line-Number Editing (3.1)
-- **Support absolute line references** instead of just structural selectors
-- **Format**: `grafty replace file.py:42 --text "..."` (single line)
-- **Format**: `grafty replace file.py:42-50 --text "..."` (range)
-- **Leverage**: Existing patch infrastructure for reliable mutations
-- **Example**: Edit config section without knowing exact function name
+Three complementary features that fill real workflow gaps:
 
-#### 2. Improved Error Messages (3.2)
-- **Show candidates** when fuzzy match fails (top 10 matches)
-- **Explain failures** with context about available nodes
-- **Suggest similar names** in candidates list
-- **Better UX** for discovery and disambiguation
-- **Example**: `No node found in src/main.py lines 42-50. Available: MyClass (1-20), helper (22-35)`
+#### 1. Line-Number Editing (3.1) ✅
 
-#### 3. Query Language (3.3)
-- **Glob pattern matching** for node names
-- **Format**: `grafty search "*validate*"` finds all containing "validate"
-- **Supported wildcards**: `*pattern`, `pattern*`, `*pattern*`, `start*end`
-- **Path globs**: `grafty search "*validate*" --path src/`
-- **New command**: `grafty search` with pattern, kind, and path filters
-- **Example**: Find all test functions with `grafty search "test_*"`
+**Problem**: Need precise line-based editing for diffs, stack traces, emergency fixes.
+
+**Solution**: 
+- `grafty replace file.py:42 --text "..."` — single line
+- `grafty replace file.py:42-50 --text "..."` — line range
+- Works with `show`, `replace`, `delete`, `insert --line`
+
+**Implementation**:
+- Reuses existing patch infrastructure
+- `LineNumberSelector.parse()` disambiguates from `path:kind:name` format (single colon)
+- Supports all mutation operations safely
+
+**Examples**:
+```bash
+# Quick fix from a stack trace
+grafty replace "src/main.py:42" --text "return None  # FIX" --apply
+
+# Edit a section without structural knowledge
+grafty replace "config.yaml:10-20" --file new_config.yaml --apply
+
+# Show lines from a diff
+grafty show "src/utils.py:42-50"
+
+# Delete debug code
+grafty delete "src/debug.py:15-25" --apply
+```
+
+#### 2. Improved Error Messages (3.2) ✅
+
+**Problem**: Vague errors ("No node found matching...") made selectors hard to debug.
+
+**Solution**:
+- Show top 10 candidates when fuzzy match fails
+- Include context: available nodes, line ranges, file location
+- Explain selector format options in errors
+
+**Implementation**:
+- `_resolve_fuzzy()` returns best matches by edit distance
+- `_resolve_by_line_numbers()` shows available nodes when line range misses
+- All error messages include actionable context
+
+**Examples**:
+```
+$ grafty show "myclass"
+Error: No node found matching: 'myclass'.
+Did you mean:
+  src/main.py:py_class:MyClass
+  src/utils.py:py_class:DataClass
+(Searched 156 nodes)
+
+$ grafty show "file.py:100-150"
+Error: No node found in file.py lines 100-150.
+Available: MyClass (1-50), helper (52-80), process (85-95), validate (100-110)
+Tip: Use 'grafty index file.py' to see all nodes.
+```
+
+**Impact**: Users can discover selectors and debug mistakes without reading docs.
+
+#### 3. Query Language / Search (3.3) ✅
+
+**Problem**: Had to know exact node names to find code (`py_function:validate`). Couldn't discover or refactor.
+
+**Solution**:
+- `grafty search <pattern>` — glob-pattern matching on node names
+- `grafty search <pattern> --path <glob>` — filter by file path
+- `grafty search <pattern> --kind <kind>` — filter by node kind
+- `grafty search <pattern> --json` — JSON output for scripting
+
+**Patterns**:
+- `*validate*` — contains "validate"
+- `test_*` — starts with "test_"
+- `*_error` — ends with "_error"
+- `start*end` — starts with "start", ends with "end"
+- `*` — all nodes (useful with --kind filter)
+
+**Implementation**:
+- Uses Python's `fnmatch` (shell-style glob patterns)
+- Not regex (simpler, more approachable)
+- Leverages existing `query_nodes_by_pattern()` and `query_nodes_by_path_glob()`
+
+**Examples**:
+```bash
+# Find all validation functions/methods
+grafty search "*validate*"
+# [py_function    ] validate_email      src/validators.py:45-60
+# [py_method      ] validate            src/User.py:100-120
+# ...
+
+# Find all tests in tests/ directory
+grafty search "test_*" --path "tests/"
+
+# Find all Go error handling code
+grafty search "*error*" --kind "go_function"
+
+# Find struct/class definitions containing "data"
+grafty search "*data*" --kind "rs_struct"
+
+# List all methods in a class (for analysis)
+grafty search "*" --kind "py_method" --json | jq '.nodes[] | .name'
+```
+
+**Impact**:
+- Users can refactor "all validation functions" without manual grep
+- Enables "find all X" workflows that were previously tedious
+- Makes code structure discoverable through pattern queries
 
 ### 📊 Test Coverage
-- **24 new tests** for Phase 3 features
-- **78 total tests** passing (54 original + 24 new)
+- **24 new tests** for Phase 3 features (line selectors, improved errors, search patterns)
+- **78 total tests** passing (54 v0.3 + 24 v0.4)
 - **100% backward compatible** with v0.3.0
 
 ### 🔧 Quality Gates Met
 ✅ All tests passing
 ✅ Linting clean (ruff)
 ✅ No breaking changes
-✅ Backward compatible workflows
+✅ All existing selectors work unchanged
+✅ All Phase 3 goals achieved:
+  - Safe line editing with fallback to patches
+  - Discoverable selectors via error messages
+  - Query language for pattern-based code discovery
+
+### 🎓 Architecture Decisions
+- **Why line numbers + structural**: Complementary approaches, different use cases
+- **Why glob patterns, not regex**: Simplicity, approachability, composability
+- **Why error context**: Selectors discoverable from errors, no docs lookup needed
+
+See `ARCHITECTURE_DECISIONS.md` for full rationale.
 
 ---
 

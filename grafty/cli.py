@@ -117,7 +117,21 @@ def search(
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.option("--repo-root", type=click.Path(), default=".", help="Repository root")
 def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_root: str) -> None:
-    """Show a node by selector."""
+    """
+    Show a node by selector.
+    
+    Selector formats (Phase 3):
+    - ID-based: abc123def456
+    - Structural: file.py:py_function:my_func
+    - Line-based: file.py:42 or file.py:42-50
+    - Fuzzy: my_func (searches all nodes)
+    
+    Examples:
+    - grafty show "src/main.py:py_function:parse_config"
+    - grafty show "file.py:42"          # Line number selector
+    - grafty show "file.py:42-50"       # Line range
+    - grafty show "process"             # Fuzzy search
+    """
     # Index all files
     indexer = Indexer()
     indices = indexer.index_directory(repo_root)
@@ -191,12 +205,25 @@ def replace(
     repo_root: str,
 ) -> None:
     """
-    Replace a node.
-
-    Supports:
-    - Path:kind:name selectors: file.py:py_function:main
-    - Line numbers (Phase 3): file.py:42 or file.py:42-50
-    - Fuzzy name search: my_func
+    Replace a node or line range.
+    
+    Selector formats (Phase 3):
+    - Structural: file.py:py_function:main
+    - Line-based: file.py:42 (single) or file.py:42-50 (range)
+    - Fuzzy: my_func
+    
+    Examples:
+    - grafty replace "src/main.py:py_function:old_impl" --text "def old_impl(): return 42" --apply
+    - grafty replace "file.py:42-50" --file new_impl.py --apply
+    - grafty replace "main.py:10" --text "new_line" --apply
+    
+    Options:
+    - --text: Inline replacement text
+    - --file: Read replacement from file
+    - --apply: Apply changes to file (default: dry-run shows patch)
+    - --backup: Create .bak backup before applying
+    - --force: Skip drift detection
+    - --patch-out: Save patch to file
     """
     if not text and not file:
         click.echo("Error: Must provide --text or --file", err=True)
@@ -287,7 +314,26 @@ def insert(
     backup: bool,
     repo_root: str,
 ) -> None:
-    """Insert text at line or relative to selector."""
+    """
+    Insert text at a line number or relative to a selector.
+    
+    Insertion modes:
+    - --line N: Insert at line N (absolute)
+    - --before: Insert before selector
+    - --after: Insert after selector
+    - --inside-start: Insert at start of selector block
+    - --inside-end: Insert at end of selector block
+    
+    Examples:
+    - grafty insert --line 42 --text "new line" --apply
+    - grafty insert "file.py:py_class:MyClass" --inside-end --text "def new_method(): pass" --apply
+    - grafty insert "file.py:py_function:main" --before --file header.txt --apply
+    
+    Options:
+    - --text: Inline text to insert
+    - --file: Read text from file
+    - --apply: Apply changes (default: dry-run shows patch)
+    """
     if not text and not file:
         click.echo("Error: Must provide --text or --file", err=True)
         sys.exit(1)
@@ -331,7 +377,24 @@ def delete(
     backup: bool,
     repo_root: str,
 ) -> None:
-    """Delete a node."""
+    """
+    Delete a node or line range.
+    
+    Selector formats (Phase 3):
+    - Structural: file.py:py_function:unused_fn
+    - Line-based: file.py:42-50
+    - Fuzzy: unused_fn
+    
+    Examples:
+    - grafty delete "src/utils.py:py_function:unused_fn" --apply
+    - grafty delete "file.py:42-50" --apply --backup
+    - grafty delete "old_code" --dry-run  # See patch first
+    
+    Options:
+    - --apply: Apply deletion (default: dry-run shows patch)
+    - --backup: Create .bak backup before applying
+    - --patch-out: Save patch to file
+    """
     # Index and resolve
     indexer = Indexer()
     indices = indexer.index_directory(repo_root)

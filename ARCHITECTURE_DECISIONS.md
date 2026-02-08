@@ -196,6 +196,91 @@ The transition is frictionless — all existing development workflows continue.
 
 ---
 
+## Line Numbers Matter Alongside Structural Selectors (Phase 3.1)
+
+**Decision**: Support line-number selectors (`file.py:42`, `file.py:42-50`) alongside structural selectors.
+
+**Rationale**:
+1. **Complementary, not competing** — Line numbers and structural selectors solve different problems
+   - Structural: "Edit this function" (stable, semantic)
+   - Line-based: "Edit lines 42-50" (precise, diff-centric)
+
+2. **Real workflow need** — ~20% of edits are line-based (from diffs, stack traces, "quick fixes")
+
+3. **Consistent interface** — Same mutation operations (replace, show, delete) work with any selector format
+
+4. **Safe fallback** — When structural selectors are imprecise or unknown, lines provide accurate targeting
+
+5. **Integration** — Works with existing patch/diff infrastructure (no new code paths needed)
+
+**Implementation**:
+- `LineNumberSelector.parse()` distinguishes line selectors (single colon) from path:kind:name format
+- `_resolve_by_line_numbers()` finds nodes overlapping the line range
+- CLI accepts selectors uniformly: resolve as line → try path:kind:name → try fuzzy
+
+**Why not just line numbers?** Structural selectors remain superior for long-term stability (lines shift; function names endure).
+
+**Why not just structural?** Line numbers solve the "urgent edit" problem where structural precision is overkill.
+
+---
+
+## Query Language Design: Glob Patterns Over Regex (Phase 3.3)
+
+**Decision**: Use shell-style glob patterns (`fnmatch`) for the search command instead of regex.
+
+**Rationale**:
+1. **Approachability** — Glob patterns are familiar to every shell user
+   - `test_*` is intuitive (starts with "test_")
+   - `*validate*` is obvious (contains "validate")
+   - `*.spec.ts` works for file patterns
+
+2. **Safety** — Regex is powerful but scary for casual users
+   - Glob patterns are simple, hard to misuse
+   - Can always add `--regex` if advanced filtering is needed later
+
+3. **Consistency** — Grafty already uses glob patterns for path filters
+   - `--path "src/"` uses glob-style matching
+   - Extending to node names is natural extension
+
+4. **Implementation** — Python's `fnmatch` module is battle-tested
+   - No regex compilation overhead
+   - Straightforward semantics
+
+5. **Composability** — Glob patterns stack naturally
+   - `search "*test*" --path "tests/" --kind "py_function"`
+   - Each filter is independent and easy to understand
+
+**Alternative considered**: Regex patterns
+- **Pro**: More powerful, allows complex matching
+- **Con**: Higher cognitive load, regex syntax errors, overkill for 90% of searches
+
+**Future expansion**: Could add `--regex` flag later if users need regex patterns, without breaking glob patterns.
+
+---
+
+## Improved Error Messages with Context (Phase 3.2)
+
+**Decision**: When selectors fail, show candidates and available nodes with context.
+
+**Rationale**:
+1. **Discoverability** — Users can learn available nodes from error messages
+2. **Debugging** — Seeing "Available: MyClass (1-20), helper (22-35)" helps disambiguate
+3. **UX** — Interactive feel without needing an interactive mode
+4. **Low cost** — Requires only string formatting and sorting, no new data structures
+
+**Implementation**:
+- `_resolve_fuzzy()` returns top 10 candidates (score-sorted)
+- `_resolve_by_line_numbers()` shows available nodes in file when line range doesn't match
+- Error messages include context: file, node types, line ranges
+
+**Example**:
+```
+Error: No node found in src/main.py lines 42-50.
+Available: MyClass (1-20), helper (22-35), process (35-70)
+```
+
+---
+
 ## Summary
 
 | Aspect | Choice | Rationale |
