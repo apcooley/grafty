@@ -11,9 +11,40 @@ import click
 from .indexer import Indexer
 from .selectors import Resolver
 from .editor import Editor
+from .models import Node
 from .patch import git_apply_check, format_patch_summary
 from .utils import truncate_text
 from .multi_file_patch import PatchSet
+
+
+def _show_node(
+    node: Node,
+    output_json: bool = False,
+    max_lines: int = 50,
+    max_chars: int = 2000,
+) -> None:
+    """Display a node's content (helper function)."""
+    # Read node content
+    p = Path(node.path)
+    content = p.read_text(encoding="utf-8")
+    lines = content.splitlines()
+
+    start_idx = node.start_line - 1
+    end_idx = node.end_line
+    node_text = "\n".join(lines[start_idx:end_idx])
+
+    if output_json:
+        output = {
+            "node": node.to_dict(),
+            "text": node_text,
+        }
+        click.echo(json.dumps(output, indent=2))
+    else:
+        # Truncate for display
+        truncated = truncate_text(node_text, max_chars=max_chars, max_lines=max_lines)
+        click.echo(f"Node: {node.qualname or node.name} ({node.kind})")
+        click.echo(f"File: {node.path} (lines {node.start_line}-{node.end_line})")
+        click.echo("\n" + truncated)
 
 
 @click.group()
@@ -123,7 +154,7 @@ def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_
 
     Selector formats (Phase 3):
     - ID-based: abc123def456
-    - Structural: file.py:py_function:my_func
+    - Structural: file.py:py_function:my_func (parses file on-demand)
     - Line-based: file.py:42 or file.py:42-50
     - Fuzzy: my_func (searches all nodes)
 
@@ -133,22 +164,38 @@ def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_
     - grafty show "file.py:42-50"       # Line range
     - grafty show "process"             # Fuzzy search
     """
-    # Index all files from repo_root
+    from pathlib import Path
+
+    # If selector has path:kind:name format, parse that file on-demand (zero persistence)
+    if ":" in selector and not selector[0].isalnum():
+        parts = selector.split(":", 2)
+        if len(parts) >= 2:
+            maybe_file = parts[0]
+            file_path = Path(maybe_file).expanduser().resolve()
+            
+            # Try parsing the specific file
+            if file_path.is_file():
+                try:
+                    indexer = Indexer()
+                    file_index = indexer.index_file(str(file_path))
+                    indices = {str(file_path): file_index}
+                    
+                    resolver = Resolver(indices)
+                    result = resolver.resolve(selector)
+                    
+                    if result.is_resolved():
+                        node = result.exact_match
+                        assert node is not None
+                        
+                        # Show node content
+                        _show_node(node, output_json, max_lines, max_chars)
+                        return
+                except Exception:
+                    pass  # Fall through to fuzzy search below
+
+    # Fallback: index repo_root and do fuzzy/ambiguous search
     indexer = Indexer()
     indices = indexer.index_directory(repo_root)
-
-    # Smart auto-indexing: if selector is path:kind:name, also try indexing that file
-    if ":" in selector and not selector[0].isalnum():  # Has colon and not just an ID
-        parts = selector.split(":", 1)
-        maybe_file = parts[0]
-        # Try to auto-index the specific file if it exists
-        from pathlib import Path
-        file_path = Path(maybe_file).expanduser().resolve()
-        if file_path.is_file() and str(file_path) not in indices:
-            try:
-                indices[str(file_path)] = indexer.index_file(str(file_path))
-            except Exception:
-                pass  # File doesn't exist or can't be indexed, continue with repo_root
 
     # Resolve selector
     resolver = Resolver(indices)
@@ -173,28 +220,8 @@ def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_
 
     node = result.exact_match
     assert node is not None
-
-    # Read node content
-    p = Path(node.path)
-    content = p.read_text(encoding="utf-8")
-    lines = content.splitlines()
-
-    start_idx = node.start_line - 1
-    end_idx = node.end_line
-    node_text = "\n".join(lines[start_idx:end_idx])
-
-    if output_json:
-        output = {
-            "node": node.to_dict(),
-            "text": node_text,
-        }
-        click.echo(json.dumps(output, indent=2))
-    else:
-        # Truncate for display
-        truncated = truncate_text(node_text, max_chars=max_chars, max_lines=max_lines)
-        click.echo(f"Node: {node.qualname or node.name} ({node.kind})")
-        click.echo(f"File: {node.path} (lines {node.start_line}-{node.end_line})")
-        click.echo("\n" + truncated)
+    
+    _show_node(node, output_json, max_lines, max_chars)
 
 
 @cli.command()
