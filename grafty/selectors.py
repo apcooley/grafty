@@ -4,6 +4,7 @@ selectors.py — Selector resolution and tree navigation.
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from pathlib import Path
 import fnmatch
 
 from .models import Node, SelectorResult, FileIndex
@@ -122,6 +123,10 @@ class Resolver:
         # Try fuzzy name search
         return self._resolve_fuzzy(selector)
 
+    def _normalize_path(self, path: str) -> str:
+        """Normalize a path by expanding tilde and resolving to absolute."""
+        return str(Path(path).expanduser().resolve())
+
     def _resolve_by_path_kind_name(
         self,
         path: str,
@@ -131,10 +136,20 @@ class Resolver:
         """Resolve by exact path, kind, name."""
         candidates = []
 
-        # Normalize path (handle both relative and absolute)
-        for node in self.nodes_by_path.get(path, []):
-            if node.kind == kind and node.name == name:
-                candidates.append(node)
+        # Try exact match first
+        if path in self.nodes_by_path:
+            for node in self.nodes_by_path[path]:
+                if node.kind == kind and node.name == name:
+                    candidates.append(node)
+
+        # If no match, try with normalized paths (tilde expansion, absolute resolution)
+        if not candidates:
+            normalized_path = self._normalize_path(path)
+            for indexed_path, nodes in self.nodes_by_path.items():
+                if self._normalize_path(indexed_path) == normalized_path:
+                    for node in nodes:
+                        if node.kind == kind and node.name == name:
+                            candidates.append(node)
 
         if len(candidates) == 1:
             return SelectorResult(exact_match=candidates[0])
@@ -155,10 +170,20 @@ class Resolver:
         # Find nodes that overlap with the specified line range
         candidates = []
 
+        # Try exact match first
         for node in self.nodes_by_path.get(file_path, []):
             # Check if node overlaps with or is contained in the line range
             if node.start_line >= start_line and node.end_line <= end_line:
                 candidates.append(node)
+
+        # If no match, try with normalized paths (tilde expansion)
+        if not candidates:
+            normalized_path = self._normalize_path(file_path)
+            for indexed_path, nodes in self.nodes_by_path.items():
+                if self._normalize_path(indexed_path) == normalized_path:
+                    for node in nodes:
+                        if node.start_line >= start_line and node.end_line <= end_line:
+                            candidates.append(node)
 
         if len(candidates) == 1:
             return SelectorResult(exact_match=candidates[0])
@@ -169,6 +194,14 @@ class Resolver:
         else:
             # If no exact match, return error with helpful context
             available_nodes = self.nodes_by_path.get(file_path, [])
+            if not available_nodes:
+                # Try normalized path lookup
+                normalized_path = self._normalize_path(file_path)
+                for indexed_path, nodes in self.nodes_by_path.items():
+                    if self._normalize_path(indexed_path) == normalized_path:
+                        available_nodes = nodes
+                        break
+
             if available_nodes:
                 nodes_str = ", ".join(
                     f"{n.name} ({n.start_line}-{n.end_line})"
