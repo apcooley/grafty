@@ -18,38 +18,49 @@ from .multi_file_patch import PatchSet
 
 
 def _print_human_readable(indices: dict) -> None:
-    """Print index in human-readable format with headers and aligned columns."""
+    """Print index in human-readable format with smart column widths."""
     for file_path, idx in sorted(indices.items()):
-        # Header
-        click.echo(f"\n{'═' * 80}")
-        click.echo(f"FILE: {file_path} ({len(idx.nodes)} nodes)")
-        click.echo(f"{'═' * 80}")
-        
-        # Column headers
-        click.echo(f"{'KIND':16} │ {'NODE NAME':50} │ {'LINES':12}")
-        click.echo(f"{'-' * 16}─┼─{'-' * 50}─┼─{'-' * 12}")
-        
         # Build nodes_by_id lookup for this file
         nodes_by_id = {node.id: node for node in idx.nodes}
         
-        # Group nodes by parent for visual hierarchy
+        # First pass: calculate max column widths
+        max_kind = len("KIND")
+        max_name = len("NODE NAME")
+        max_lines = len("LINES")
+        
         for node in idx.nodes:
-            # Compute nested path (e.g., "Parent/Child/GrandChild")
             nested_path = _compute_nested_path(node, nodes_by_id)
-            
-            # Indent children visually
-            indent = "  " if node.parent_id else ""
-            name_display = f"{indent}{nested_path}"
-            
-            # Truncate name if too long
-            if len(name_display) > 50:
-                name_display = name_display[:47] + "…"
-            
-            # Format line range
-            lines = f"{node.start_line:4d}–{node.end_line:4d}"
+            max_kind = max(max_kind, len(node.kind))
+            max_name = max(max_name, len(nested_path))
+            # Line range format: "4-180" (no padding)
+            lines_str = f"{node.start_line}-{node.end_line}"
+            max_lines = max(max_lines, len(lines_str))
+        
+        # Add 1-2 chars padding
+        max_kind += 1
+        max_name += 2
+        max_lines += 1
+        
+        # Header
+        click.echo(f"\n{'═' * (max_kind + max_name + max_lines + 6)}")
+        click.echo(f"FILE: {file_path} ({len(idx.nodes)} nodes)")
+        click.echo(f"{'═' * (max_kind + max_name + max_lines + 6)}")
+        
+        # Column headers
+        click.echo(
+            f"{'KIND':<{max_kind}} │ {'NODE NAME':<{max_name}} │ {'LINES':>{max_lines}}"
+        )
+        click.echo(
+            f"{'-' * (max_kind - 1)}─┼─{'-' * (max_name - 1)}─┼─{'-' * (max_lines - 1)}"
+        )
+        
+        # Data rows (no indentation, paths already show hierarchy with /)
+        for node in idx.nodes:
+            nested_path = _compute_nested_path(node, nodes_by_id)
+            lines_str = f"{node.start_line}-{node.end_line}"
             
             click.echo(
-                f"{node.kind:16} │ {name_display:50} │ {lines:>12}"
+                f"{node.kind:<{max_kind}} │ {nested_path:<{max_name}} │ {lines_str:>{max_lines}}"
             )
 
 
@@ -65,11 +76,10 @@ def _format_toon(indices: dict) -> str:
         
         for node in idx.nodes:
             nested_path = _compute_nested_path(node, nodes_by_id)
-            indent = "  " if node.parent_id else ""
-            
+            # No indentation - path already shows hierarchy with /
             # TOON format: kind | path | lines (compact, no quotes)
             lines.append(
-                f"{indent}{node.kind} | {nested_path} | {node.start_line}-{node.end_line}"
+                f"{node.kind} | {nested_path} | {node.start_line}-{node.end_line}"
             )
     
     return "\n".join(lines)
