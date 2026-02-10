@@ -114,6 +114,7 @@ class OrgParser:
                     start_line=node.start_line,
                     end_line=preamble_end,
                     heading_level=node.heading_level,
+                    parent_id=node.parent_id,  # Inherit parent from heading for nested paths
                 )
                 preamble_nodes.append(preamble_node)
 

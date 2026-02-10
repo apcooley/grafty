@@ -247,6 +247,7 @@ class MarkdownParser:
                     start_byte=node.start_byte,
                     end_byte=None,  # Not computed for preambles
                     heading_level=node.heading_level,
+                    parent_id=node.parent_id,  # Inherit parent from heading for nested paths
                 )
                 preamble_nodes.append(preamble_node)
 
