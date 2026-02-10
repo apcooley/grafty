@@ -17,6 +17,64 @@ from .utils import truncate_text
 from .multi_file_patch import PatchSet
 
 
+def _print_human_readable(indices: dict) -> None:
+    """Print index in human-readable format with headers and aligned columns."""
+    for file_path, idx in sorted(indices.items()):
+        # Header
+        click.echo(f"\n{'═' * 80}")
+        click.echo(f"FILE: {file_path} ({len(idx.nodes)} nodes)")
+        click.echo(f"{'═' * 80}")
+        
+        # Column headers
+        click.echo(f"{'KIND':16} │ {'NODE NAME':50} │ {'LINES':12}")
+        click.echo(f"{'-' * 16}─┼─{'-' * 50}─┼─{'-' * 12}")
+        
+        # Build nodes_by_id lookup for this file
+        nodes_by_id = {node.id: node for node in idx.nodes}
+        
+        # Group nodes by parent for visual hierarchy
+        for node in idx.nodes:
+            # Compute nested path (e.g., "Parent/Child/GrandChild")
+            nested_path = _compute_nested_path(node, nodes_by_id)
+            
+            # Indent children visually
+            indent = "  " if node.parent_id else ""
+            name_display = f"{indent}{nested_path}"
+            
+            # Truncate name if too long
+            if len(name_display) > 50:
+                name_display = name_display[:47] + "…"
+            
+            # Format line range
+            lines = f"{node.start_line:4d}–{node.end_line:4d}"
+            
+            click.echo(
+                f"{node.kind:16} │ {name_display:50} │ {lines:>12}"
+            )
+
+
+def _format_toon(indices: dict) -> str:
+    """Format as Token Optimized Object Notation (compact, structured)."""
+    lines = []
+    
+    for file_path, idx in sorted(indices.items()):
+        lines.append(f"# {file_path} ({len(idx.nodes)} nodes)")
+        
+        # Build nodes_by_id lookup
+        nodes_by_id = {node.id: node for node in idx.nodes}
+        
+        for node in idx.nodes:
+            nested_path = _compute_nested_path(node, nodes_by_id)
+            indent = "  " if node.parent_id else ""
+            
+            # TOON format: kind | path | lines (compact, no quotes)
+            lines.append(
+                f"{indent}{node.kind} | {nested_path} | {node.start_line}-{node.end_line}"
+            )
+    
+    return "\n".join(lines)
+
+
 def _compute_nested_path(node: Node, nodes_by_id: dict) -> str:
     """Compute nested path for a node (e.g., 'Parent/Child/GrandChild')."""
     parts = [node.name]
@@ -72,7 +130,8 @@ def cli():
 @cli.command()
 @click.argument("paths", nargs=-1, type=str)
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
-def index(paths: List[str], output_json: bool) -> None:
+@click.option("--toon", is_flag=True, help="Output as Token Optimized Object Notation (compact)")
+def index(paths: List[str], output_json: bool, toon: bool) -> None:
     """Index files and list all structural units."""
     if not paths:
         paths = ["."]
@@ -97,24 +156,13 @@ def index(paths: List[str], output_json: bool) -> None:
         # Output JSON
         output = {path: idx.to_dict() for path, idx in indices.items()}
         click.echo(json.dumps(output, indent=2))
+    elif toon:
+        # Token Optimized Object Notation (compact JSON-like format)
+        output = _format_toon(indices)
+        click.echo(output)
     else:
-        # Human-readable with nested paths
-        for path, idx in sorted(indices.items()):
-            click.echo(f"\n{path} ({len(idx.nodes)} nodes)")
-            
-            # Build nodes_by_id lookup for this file
-            nodes_by_id = {node.id: node for node in idx.nodes}
-            
-            for node in idx.nodes:
-                # Compute nested path (e.g., "Parent/Child/GrandChild")
-                nested_path = _compute_nested_path(node, nodes_by_id)
-                
-                # Show indent only for visual hierarchy; name includes full path
-                indent = "  " if node.parent_id else ""
-                click.echo(
-                    f"{indent}[{node.kind:15}] {nested_path:40} "
-                    f"({node.start_line:4}-{node.end_line:4})"
-                )
+        # Human-readable with headers and aligned columns
+        _print_human_readable(indices)
 
 
 @cli.command()
