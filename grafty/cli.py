@@ -54,7 +54,7 @@ def cli():
 
 
 @cli.command()
-@click.argument("paths", nargs=-1, type=click.Path(exists=True))
+@click.argument("paths", nargs=-1, type=str)
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 def index(paths: List[str], output_json: bool) -> None:
     """Index files and list all structural units."""
@@ -65,11 +65,17 @@ def index(paths: List[str], output_json: bool) -> None:
     indices = {}
 
     for path in paths:
-        p = Path(path)
+        # Expand tilde and resolve to absolute path
+        p = Path(path).expanduser().resolve()
+        
+        if not p.exists():
+            click.echo(f"Error: Path does not exist: {path}", err=True)
+            sys.exit(1)
+        
         if p.is_file():
-            indices[path] = indexer.index_file(path)
+            indices[str(p)] = indexer.index_file(str(p))
         else:
-            indices.update(indexer.index_directory(path))
+            indices.update(indexer.index_directory(str(p)))
 
     if output_json:
         # Output JSON
