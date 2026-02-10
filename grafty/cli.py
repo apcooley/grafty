@@ -68,21 +68,33 @@ def _print_human_readable(indices: dict) -> None:
 
 
 def _format_toon(indices: dict) -> str:
-    """Format as Token Optimized Object Notation (compact, structured)."""
+    """Format as Token-Oriented Object Notation (TOON) - compact tabular format.
+    
+    TOON combines YAML-like indentation with CSV-style tabular arrays:
+    - Top-level objects use YAML-style key: value indentation
+    - Arrays use {field,names} headers followed by comma-separated values
+    - Array count: nodes[N] declares the number of rows
+    """
     lines = []
     
     for file_path, idx in sorted(indices.items()):
-        lines.append(f"# {file_path} ({len(idx.nodes)} nodes)")
+        # Top-level object (YAML-style)
+        lines.append(f"file: {file_path}")
         
-        # Build nodes_by_id lookup
+        # Array declaration with field names
         nodes_by_id = {node.id: node for node in idx.nodes}
+        num_nodes = len(idx.nodes)
         
+        # TOON array format: nodes[count]{field,names}:
+        lines.append(f"nodes[{num_nodes}]{{kind,name,lines}}:")
+        
+        # Data rows (CSV-style values)
         for node in idx.nodes:
             nested_path = _compute_nested_path(node, nodes_by_id)
-            # No indentation - path already shows hierarchy with /
-            # TOON format: kind | path | lines (compact, no quotes)
+            line_range = f"{node.start_line}-{node.end_line}"
+            # CSV-style: quoted strings if they contain special chars, bare numbers/ranges
             lines.append(
-                f"{node.kind} | {nested_path} | {node.start_line}-{node.end_line}"
+                f" {node.kind},{nested_path},{line_range}"
             )
     
     return "\n".join(lines)
