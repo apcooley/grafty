@@ -133,9 +133,22 @@ def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_
     - grafty show "file.py:42-50"       # Line range
     - grafty show "process"             # Fuzzy search
     """
-    # Index all files
+    # Index all files from repo_root
     indexer = Indexer()
     indices = indexer.index_directory(repo_root)
+
+    # Smart auto-indexing: if selector is path:kind:name, also try indexing that file
+    if ":" in selector and not selector[0].isalnum():  # Has colon and not just an ID
+        parts = selector.split(":", 1)
+        maybe_file = parts[0]
+        # Try to auto-index the specific file if it exists
+        from pathlib import Path
+        file_path = Path(maybe_file).expanduser().resolve()
+        if file_path.is_file() and str(file_path) not in indices:
+            try:
+                indices[str(file_path)] = indexer.index_file(str(file_path))
+            except Exception:
+                pass  # File doesn't exist or can't be indexed, continue with repo_root
 
     # Resolve selector
     resolver = Resolver(indices)
