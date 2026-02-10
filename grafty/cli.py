@@ -36,23 +36,26 @@ def _print_human_readable(indices: dict) -> None:
             lines_str = f"{node.start_line}-{node.end_line}"
             max_lines = max(max_lines, len(lines_str))
         
-        # Add 1-2 chars padding
+        # Add padding
         max_kind += 1
         max_name += 2
         max_lines += 1
         
+        # Calculate total width
+        total_width = max_kind + max_name + max_lines + 6  # 6 = 2 " │ " + " │ "
+        
         # Header
-        click.echo(f"\n{'═' * (max_kind + max_name + max_lines + 6)}")
+        click.echo(f"\n{'═' * total_width}")
         click.echo(f"FILE: {file_path} ({len(idx.nodes)} nodes)")
-        click.echo(f"{'═' * (max_kind + max_name + max_lines + 6)}")
+        click.echo(f"{'═' * total_width}")
         
         # Column headers
         click.echo(
-            f"{'KIND':<{max_kind}} │ {'NODE NAME':<{max_name}} │ {'LINES':>{max_lines}}"
+            f"{'KIND':<{max_kind}}│ {'NODE NAME':<{max_name}}│ {'LINES':>{max_lines}}"
         )
-        click.echo(
-            f"{'-' * (max_kind - 1)}─┼─{'-' * (max_name - 1)}─┼─{'-' * (max_lines - 1)}"
-        )
+        # Separator (all dashes, matching column widths exactly)
+        sep_line = f"{'-' * max_kind}┼─{'-' * max_name}┼─{'-' * max_lines}"
+        click.echo(sep_line)
         
         # Data rows (no indentation, paths already show hierarchy with /)
         for node in idx.nodes:
@@ -60,7 +63,7 @@ def _print_human_readable(indices: dict) -> None:
             lines_str = f"{node.start_line}-{node.end_line}"
             
             click.echo(
-                f"{node.kind:<{max_kind}} │ {nested_path:<{max_name}} │ {lines_str:>{max_lines}}"
+                f"{node.kind:<{max_kind}}│ {nested_path:<{max_name}}│ {lines_str:>{max_lines}}"
             )
 
 
