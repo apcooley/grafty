@@ -7,7 +7,10 @@ representing HTML elements with their attributes (id, class, data-*, aria-*).
 from html.parser import HTMLParser as StdHTMLParser
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, Tuple
+from pathlib import Path
 import re
+
+from ..models import Node
 
 
 @dataclass
@@ -193,6 +196,68 @@ class HTMLParser(StdHTMLParser):
         """Handle text content in HTML."""
         # We could create text nodes if needed
         pass
+
+    def parse_file(self, file_path: str) -> List[Node]:
+        """Parse an HTML file and return list of grafty Node objects with parent_id.
+        
+        Args:
+            file_path: Path to HTML file
+            
+        Returns:
+            List of Node objects with parent relationships
+        """
+        p = Path(file_path)
+        content = p.read_text(encoding="utf-8")
+        
+        # Parse HTML
+        root, html_nodes = self.parse(content)
+        
+        # Filter to only html_element nodes (skip ids, classes, attrs)
+        element_nodes = [n for n in html_nodes if n.kind == "html_element"]
+        
+        # Convert HTMLNode objects to grafty Node objects with parent_id
+        nodes: List[Node] = []
+        html_to_grafty: Dict[int, str] = {}  # id(html_node) -> grafty_node_id
+        
+        for html_node in element_nodes:
+            # Compute end_line: for HTML, we use the parser's line tracking
+            end_line = html_node.line_end if html_node.line_end > html_node.line_start else html_node.line_start
+            
+            # Create grafty Node
+            node_id = Node.compute_id(file_path, "html_element", html_node.name, html_node.line_start)
+            node = Node(
+                id=node_id,
+                kind="html_element",
+                name=html_node.name,
+                path=file_path,
+                start_line=html_node.line_start,
+                end_line=end_line,
+            )
+            nodes.append(node)
+            html_to_grafty[id(html_node)] = node_id
+        
+        # Build parent_id relationships
+        for html_node in element_nodes:
+            grafty_id = html_to_grafty[id(html_node)]
+            
+            # Find the grafty Node for this html_node
+            grafty_node = next((n for n in nodes if n.id == grafty_id), None)
+            if not grafty_node:
+                continue
+            
+            # Find parent
+            if html_node.parent and html_node.parent.kind == "html_element":
+                parent_html_id = id(html_node.parent)
+                if parent_html_id in html_to_grafty:
+                    parent_grafty_id = html_to_grafty[parent_html_id]
+                    grafty_node.parent_id = parent_grafty_id
+                    
+                    # Add to parent's children_ids
+                    parent_node = next((n for n in nodes if n.id == parent_grafty_id), None)
+                    if parent_node:
+                        parent_node.children_ids.append(grafty_id)
+        
+        return nodes
 
 
 def parse_html_file(file_path: str) -> Tuple[HTMLNode, List[HTMLNode]]:

@@ -14,6 +14,8 @@ from .parsers import (
     JavaScriptParser,
     GoParser,
     RustParser,
+    HTMLParser,
+    CSSParser,
 )
 
 
@@ -30,6 +32,8 @@ class Indexer:
             "javascript": JavaScriptParser(),
             "go": GoParser(),
             "rust": RustParser(),
+            "html": HTMLParser(),
+            "css": CSSParser(),
         }
 
     def index_file(self, file_path: str) -> FileIndex:

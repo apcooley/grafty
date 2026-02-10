@@ -116,11 +116,40 @@ def _compute_nested_path(node: Node, nodes_by_id: dict) -> str:
     return "/".join(parts)
 
 
+def _wrap_lines(text: str, width: int = 120) -> str:
+    """Wrap long lines to a given width, preserving indentation."""
+    wrapped_lines = []
+    for line in text.splitlines():
+        if len(line) <= width:
+            wrapped_lines.append(line)
+        else:
+            # Get leading whitespace to preserve indentation
+            indent = len(line) - len(line.lstrip())
+            indent_str = line[:indent]
+            
+            # Wrap line with indentation
+            remaining = line
+            while len(remaining) > width:
+                # Find last space before width limit
+                split_at = remaining.rfind(" ", 0, width)
+                if split_at == -1:
+                    # No space found, split at width
+                    split_at = width
+                wrapped_lines.append(remaining[:split_at])
+                remaining = indent_str + remaining[split_at:].lstrip()
+            
+            if remaining:
+                wrapped_lines.append(remaining)
+    
+    return "\n".join(wrapped_lines)
+
+
 def _show_node(
     node: Node,
     output_json: bool = False,
-    max_lines: int = 50,
-    max_chars: int = 2000,
+    wrap: bool = True,
+    max_lines: Optional[int] = None,
+    max_chars: Optional[int] = None,
 ) -> None:
     """Display a node's content (helper function)."""
     # Read node content
@@ -139,11 +168,17 @@ def _show_node(
         }
         click.echo(json.dumps(output, indent=2))
     else:
-        # Truncate for display
-        truncated = truncate_text(node_text, max_chars=max_chars, max_lines=max_lines)
+        # Wrap long lines if enabled (default)
+        if wrap:
+            node_text = _wrap_lines(node_text)
+        
+        # Truncate only if explicitly requested (not by default)
+        if max_lines is not None or max_chars is not None:
+            node_text = truncate_text(node_text, max_chars=max_chars or 999999, max_lines=max_lines or 999999)
+        
         click.echo(f"Node: {node.qualname or node.name} ({node.kind})")
         click.echo(f"File: {node.path} (lines {node.start_line}-{node.end_line})")
-        click.echo("\n" + truncated)
+        click.echo("\n" + node_text)
 
 
 @click.group()
@@ -247,11 +282,12 @@ def search(
 
 @cli.command()
 @click.argument("selector")
-@click.option("--max-lines", type=int, default=50, help="Max lines to show")
-@click.option("--max-chars", type=int, default=2000, help="Max chars to show")
+@click.option("--max-lines", type=int, default=None, help="Max lines to show (optional)")
+@click.option("--max-chars", type=int, default=None, help="Max chars to show (optional)")
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option("--nowrap", is_flag=True, help="Disable line wrapping (default: wrap long lines)")
 @click.option("--repo-root", type=click.Path(), default=".", help="Repository root")
-def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_root: str) -> None:
+def show(selector: str, max_lines: Optional[int], max_chars: Optional[int], output_json: bool, nowrap: bool, repo_root: str) -> None:
     """
     Show a node by selector.
 
@@ -291,7 +327,7 @@ def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_
                         assert node is not None
                         
                         # Show node content
-                        _show_node(node, output_json, max_lines, max_chars)
+                        _show_node(node, output_json, wrap=not nowrap, max_lines=max_lines, max_chars=max_chars)
                         return
                 except Exception:
                     pass  # Fall through to fuzzy search below
@@ -324,7 +360,7 @@ def show(selector: str, max_lines: int, max_chars: int, output_json: bool, repo_
     node = result.exact_match
     assert node is not None
     
-    _show_node(node, output_json, max_lines, max_chars)
+    _show_node(node, output_json, wrap=not nowrap, max_lines=max_lines, max_chars=max_chars)
 
 
 @cli.command()

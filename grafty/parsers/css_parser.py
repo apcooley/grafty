@@ -6,7 +6,10 @@ representing CSS rules, selectors, and declarations.
 
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, Tuple
+from pathlib import Path
 import re
+
+from ..models import Node
 
 
 @dataclass
@@ -242,6 +245,68 @@ class CSSParser:
             line_num += match.group(0).count('\n') + 1
         
         return self.root, self.nodes
+
+    def parse_file(self, file_path: str) -> List[Node]:
+        """Parse a CSS file and return list of grafty Node objects with parent_id.
+        
+        Args:
+            file_path: Path to CSS file
+            
+        Returns:
+            List of Node objects with parent relationships
+        """
+        p = Path(file_path)
+        content = p.read_text(encoding="utf-8")
+        
+        # Parse CSS
+        root, css_nodes = self.parse(content)
+        
+        # Filter to only css_rule nodes (skip declarations)
+        rule_nodes = [n for n in css_nodes if n.kind == "css_rule"]
+        
+        # Convert CSSNode objects to grafty Node objects with parent_id
+        nodes: List[Node] = []
+        css_to_grafty: Dict[int, str] = {}  # id(css_node) -> grafty_node_id
+        
+        for css_node in rule_nodes:
+            # Compute end_line
+            end_line = css_node.line_end if css_node.line_end > css_node.line_start else css_node.line_start
+            
+            # Create grafty Node
+            node_id = Node.compute_id(file_path, "css_rule", css_node.name, css_node.line_start)
+            node = Node(
+                id=node_id,
+                kind="css_rule",
+                name=css_node.name,
+                path=file_path,
+                start_line=css_node.line_start,
+                end_line=end_line,
+            )
+            nodes.append(node)
+            css_to_grafty[id(css_node)] = node_id
+        
+        # Build parent_id relationships
+        for css_node in rule_nodes:
+            grafty_id = css_to_grafty[id(css_node)]
+            
+            # Find the grafty Node for this css_node
+            grafty_node = next((n for n in nodes if n.id == grafty_id), None)
+            if not grafty_node:
+                continue
+            
+            # Find parent (for nested CSS like @media)
+            if css_node.parent and css_node.parent.kind == "css_rule":
+                parent_css_id = id(css_node.parent)
+                if parent_css_id in css_to_grafty:
+                    parent_grafty_id = css_to_grafty[parent_css_id]
+                    grafty_node.parent_id = parent_grafty_id
+                    
+                    # Add to parent's children_ids
+                    parent_node = next((n for n in nodes if n.id == parent_grafty_id), None)
+                    if parent_node:
+                        parent_node.children_ids.append(grafty_id)
+        
+        return nodes
 
 
 def parse_css_file(file_path: str) -> Tuple[CSSNode, List[CSSNode]]:
