@@ -133,14 +133,25 @@ class Resolver:
         kind: str,
         name: str,
     ) -> SelectorResult:
-        """Resolve by exact path, kind, name."""
+        """Resolve by exact path, kind, name (supports nested paths like Parent/Child)."""
         candidates = []
+
+        # Handle nested paths (e.g., "Wardrobe/JSON parse")
+        name_parts = name.split("/")
+        is_nested = len(name_parts) > 1
 
         # Try exact match first
         if path in self.nodes_by_path:
             for node in self.nodes_by_path[path]:
-                if node.kind == kind and node.name == name:
-                    candidates.append(node)
+                if node.kind == kind:
+                    if is_nested:
+                        # Match nested path
+                        if self._matches_nested_path(node, name_parts):
+                            candidates.append(node)
+                    else:
+                        # Simple name match
+                        if node.name == name:
+                            candidates.append(node)
 
         # If no match, try with normalized paths (tilde expansion, absolute resolution)
         if not candidates:
@@ -148,8 +159,13 @@ class Resolver:
             for indexed_path, nodes in self.nodes_by_path.items():
                 if self._normalize_path(indexed_path) == normalized_path:
                     for node in nodes:
-                        if node.kind == kind and node.name == name:
-                            candidates.append(node)
+                        if node.kind == kind:
+                            if is_nested:
+                                if self._matches_nested_path(node, name_parts):
+                                    candidates.append(node)
+                            else:
+                                if node.name == name:
+                                    candidates.append(node)
 
         if len(candidates) == 1:
             return SelectorResult(exact_match=candidates[0])
@@ -159,6 +175,23 @@ class Resolver:
             return SelectorResult(
                 error=f"No node found: path={path}, kind={kind}, name={name}"
             )
+
+    def _matches_nested_path(self, node: Node, name_parts: list) -> bool:
+        """Check if node matches a nested path like ['Wardrobe', 'JSON parse']."""
+        # Build path from node upwards to root
+        path = [node.name]
+        current = node
+        
+        while current.parent_id:
+            parent = self.nodes_by_id.get(current.parent_id)
+            if parent:
+                path.insert(0, parent.name)
+                current = parent
+            else:
+                break
+        
+        # Check if path ends with name_parts
+        return path[-len(name_parts):] == name_parts
 
     def _resolve_by_line_numbers(
         self,

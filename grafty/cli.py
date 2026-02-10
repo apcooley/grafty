@@ -17,6 +17,22 @@ from .utils import truncate_text
 from .multi_file_patch import PatchSet
 
 
+def _compute_nested_path(node: Node, nodes_by_id: dict) -> str:
+    """Compute nested path for a node (e.g., 'Parent/Child/GrandChild')."""
+    parts = [node.name]
+    current = node
+    
+    while current.parent_id:
+        parent = nodes_by_id.get(current.parent_id)
+        if parent:
+            parts.insert(0, parent.name)
+            current = parent
+        else:
+            break
+    
+    return "/".join(parts)
+
+
 def _show_node(
     node: Node,
     output_json: bool = False,
@@ -82,13 +98,21 @@ def index(paths: List[str], output_json: bool) -> None:
         output = {path: idx.to_dict() for path, idx in indices.items()}
         click.echo(json.dumps(output, indent=2))
     else:
-        # Human-readable
+        # Human-readable with nested paths
         for path, idx in sorted(indices.items()):
             click.echo(f"\n{path} ({len(idx.nodes)} nodes)")
+            
+            # Build nodes_by_id lookup for this file
+            nodes_by_id = {node.id: node for node in idx.nodes}
+            
             for node in idx.nodes:
+                # Compute nested path (e.g., "Parent/Child/GrandChild")
+                nested_path = _compute_nested_path(node, nodes_by_id)
+                
+                # Show indent only for visual hierarchy; name includes full path
                 indent = "  " if node.parent_id else ""
                 click.echo(
-                    f"{indent}[{node.kind:15}] {node.name:40} "
+                    f"{indent}[{node.kind:15}] {nested_path:40} "
                     f"({node.start_line:4}-{node.end_line:4})"
                 )
 
