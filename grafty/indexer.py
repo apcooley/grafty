@@ -2,6 +2,7 @@
 indexer.py — File discovery and indexing.
 """
 from typing import List, Dict, Optional
+from pathlib import Path
 
 from .models import FileIndex
 from .patch import read_file_with_hash
@@ -82,6 +83,10 @@ class Indexer:
         indices: Dict[str, FileIndex] = {}
 
         for path in paths:
+            # Skip directories
+            if Path(path).is_dir():
+                continue
+            
             try:
                 indices[path] = self.index_file(path)
             except Exception as e:
