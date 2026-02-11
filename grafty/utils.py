@@ -98,7 +98,7 @@ def find_files(root: str, extensions: Optional[List[str]] = None) -> List[str]:
     files = []
 
     for ext in extensions:
-        files.extend([str(p) for p in root_path.rglob(f"*{ext}")])
+        files.extend([str(p) for p in root_path.rglob(f"*{ext}") if p.is_file()])
 
     return sorted(files)
 
