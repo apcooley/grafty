@@ -305,14 +305,14 @@ def show(selector: str, max_lines: Optional[int], max_chars: Optional[int], outp
     """
     from pathlib import Path
 
-    # If selector has path:kind:name format, parse that file on-demand (zero persistence)
+    # If selector has path:kind:name format, parse ONLY that file (no directory scan)
     if ":" in selector and not selector[0].isalnum():
         parts = selector.split(":", 2)
         if len(parts) >= 2:
             maybe_file = parts[0]
             file_path = Path(maybe_file).expanduser().resolve()
             
-            # Try parsing the specific file
+            # If the selector explicitly names a file, index only that file
             if file_path.is_file():
                 try:
                     indexer = Indexer()
@@ -329,10 +329,21 @@ def show(selector: str, max_lines: Optional[int], max_chars: Optional[int], outp
                         # Show node content
                         _show_node(node, output_json, wrap=not nowrap, max_lines=max_lines, max_chars=max_chars)
                         return
-                except Exception:
-                    pass  # Fall through to fuzzy search below
+                    
+                    # File was found but selector didn't resolve—error, don't fall back
+                    click.echo(f"Error: Selector not found in {file_path}", err=True)
+                    click.echo(f"\nTip: Use 'grafty index {file_path}' to see available nodes.", err=True)
+                    sys.exit(1)
+                except Exception as e:
+                    # File was found but parsing failed—error, don't fall back
+                    click.echo(f"Error parsing {file_path}: {e}", err=True)
+                    sys.exit(1)
+            else:
+                # File was not found
+                click.echo(f"Error: File not found: {file_path}", err=True)
+                sys.exit(1)
 
-    # Fallback: index repo_root and do fuzzy/ambiguous search
+    # Fallback (only for fuzzy selectors without a filename): scan repo_root
     indexer = Indexer()
     indices = indexer.index_directory(repo_root)
 
