@@ -82,6 +82,7 @@ def detect_file_type(path: str) -> Optional[str]:
         ".html": "html",
         ".htm": "html",
         ".css": "css",
+        ".json": "json",
     }
     return ext_to_kind.get(p.suffix)
 
@@ -92,7 +93,7 @@ def find_files(root: str, extensions: Optional[List[str]] = None) -> List[str]:
     If extensions is None, default to [.py, .md, .org, .clj, .cljs, .js, .ts, .go, .rs, .html, .htm, .css].
     """
     if extensions is None:
-        extensions = [".py", ".md", ".org", ".clj", ".cljs", ".js", ".ts", ".go", ".rs", ".html", ".htm", ".css"]
+        extensions = [".py", ".md", ".org", ".clj", ".cljs", ".js", ".ts", ".go", ".rs", ".html", ".htm", ".css", ".json"]
 
     root_path = Path(root)
     files = []

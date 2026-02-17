@@ -181,7 +181,7 @@ class Resolver:
         # Build path from node upwards to root
         path = [node.name]
         current = node
-        
+
         while current.parent_id:
             parent = self.nodes_by_id.get(current.parent_id)
             if parent:
@@ -189,7 +189,7 @@ class Resolver:
                 current = parent
             else:
                 break
-        
+
         # Check if path ends with name_parts
         return path[-len(name_parts):] == name_parts
 

@@ -16,6 +16,7 @@ from .parsers import (
     RustParser,
     HTMLParser,
     CSSParser,
+    JsonParser,
 )
 
 
@@ -34,6 +35,7 @@ class Indexer:
             "rust": RustParser(),
             "html": HTMLParser(),
             "css": CSSParser(),
+            "json": JsonParser(),
         }
 
     def index_file(self, file_path: str) -> FileIndex:

@@ -22,12 +22,12 @@ def _print_human_readable(indices: dict) -> None:
     for file_path, idx in sorted(indices.items()):
         # Build nodes_by_id lookup for this file
         nodes_by_id = {node.id: node for node in idx.nodes}
-        
+
         # First pass: calculate max column widths
         max_kind = len("KIND")
         max_name = len("NODE NAME")
         max_lines = len("LINES")
-        
+
         for node in idx.nodes:
             nested_path = _compute_nested_path(node, nodes_by_id)
             max_kind = max(max_kind, len(node.kind))
@@ -35,20 +35,20 @@ def _print_human_readable(indices: dict) -> None:
             # Line range format: "4-180" (no padding)
             lines_str = f"{node.start_line}-{node.end_line}"
             max_lines = max(max_lines, len(lines_str))
-        
+
         # Add padding
         max_kind += 1
         max_name += 2
         max_lines += 1
-        
+
         # Calculate total width
         total_width = max_kind + max_name + max_lines + 6  # 6 = 2 " │ " + " │ "
-        
+
         # Header
         click.echo(f"\n{'═' * total_width}")
         click.echo(f"FILE: {file_path} ({len(idx.nodes)} nodes)")
         click.echo(f"{'═' * total_width}")
-        
+
         # Column headers
         click.echo(
             f"{'KIND':<{max_kind}}│ {'NODE NAME':<{max_name}}│ {'LINES':>{max_lines}}"
@@ -56,12 +56,12 @@ def _print_human_readable(indices: dict) -> None:
         # Separator (all dashes, matching column widths exactly)
         sep_line = f"{'-' * max_kind}┼─{'-' * max_name}┼─{'-' * max_lines}"
         click.echo(sep_line)
-        
+
         # Data rows (no indentation, paths already show hierarchy with /)
         for node in idx.nodes:
             nested_path = _compute_nested_path(node, nodes_by_id)
             lines_str = f"{node.start_line}-{node.end_line}"
-            
+
             click.echo(
                 f"{node.kind:<{max_kind}}│ {nested_path:<{max_name}}│ {lines_str:>{max_lines}}"
             )
@@ -76,18 +76,18 @@ def _format_toon(indices: dict) -> str:
     - Array count: nodes[N] declares the number of rows
     """
     lines = []
-    
+
     for file_path, idx in sorted(indices.items()):
         # Top-level object (YAML-style)
         lines.append(f"file: {file_path}")
-        
+
         # Array declaration with field names
         nodes_by_id = {node.id: node for node in idx.nodes}
         num_nodes = len(idx.nodes)
-        
+
         # TOON array format: nodes[count]{field,names}:
         lines.append(f"nodes[{num_nodes}]{{kind,name,lines}}:")
-        
+
         # Data rows (CSV-style values)
         for node in idx.nodes:
             nested_path = _compute_nested_path(node, nodes_by_id)
@@ -96,7 +96,7 @@ def _format_toon(indices: dict) -> str:
             lines.append(
                 f" {node.kind},{nested_path},{line_range}"
             )
-    
+
     return "\n".join(lines)
 
 
@@ -104,7 +104,7 @@ def _compute_nested_path(node: Node, nodes_by_id: dict) -> str:
     """Compute nested path for a node (e.g., 'Parent/Child/GrandChild')."""
     parts = [node.name]
     current = node
-    
+
     while current.parent_id:
         parent = nodes_by_id.get(current.parent_id)
         if parent:
@@ -112,7 +112,7 @@ def _compute_nested_path(node: Node, nodes_by_id: dict) -> str:
             current = parent
         else:
             break
-    
+
     return "/".join(parts)
 
 
@@ -126,7 +126,7 @@ def _wrap_lines(text: str, width: int = 120) -> str:
             # Get leading whitespace to preserve indentation
             indent = len(line) - len(line.lstrip())
             indent_str = line[:indent]
-            
+
             # Wrap line with indentation
             remaining = line
             while len(remaining) > width:
@@ -137,10 +137,10 @@ def _wrap_lines(text: str, width: int = 120) -> str:
                     split_at = width
                 wrapped_lines.append(remaining[:split_at])
                 remaining = indent_str + remaining[split_at:].lstrip()
-            
+
             if remaining:
                 wrapped_lines.append(remaining)
-    
+
     return "\n".join(wrapped_lines)
 
 
@@ -171,11 +171,11 @@ def _show_node(
         # Wrap long lines if enabled (default)
         if wrap:
             node_text = _wrap_lines(node_text)
-        
+
         # Truncate only if explicitly requested (not by default)
         if max_lines is not None or max_chars is not None:
             node_text = truncate_text(node_text, max_chars=max_chars or 999999, max_lines=max_lines or 999999)
-        
+
         click.echo(f"Node: {node.qualname or node.name} ({node.kind})")
         click.echo(f"File: {node.path} (lines {node.start_line}-{node.end_line})")
         click.echo("\n" + node_text)
@@ -202,11 +202,11 @@ def index(paths: List[str], output_json: bool, toon: bool) -> None:
     for path in paths:
         # Expand tilde and resolve to absolute path
         p = Path(path).expanduser().resolve()
-        
+
         if not p.exists():
             click.echo(f"Error: Path does not exist: {path}", err=True)
             sys.exit(1)
-        
+
         if p.is_file():
             indices[str(p)] = indexer.index_file(str(p))
         else:
@@ -311,25 +311,25 @@ def show(selector: str, max_lines: Optional[int], max_chars: Optional[int], outp
         if len(parts) >= 2:
             maybe_file = parts[0]
             file_path = Path(maybe_file).expanduser().resolve()
-            
+
             # If the selector explicitly names a file, index only that file
             if file_path.is_file():
                 try:
                     indexer = Indexer()
                     file_index = indexer.index_file(str(file_path))
                     indices = {str(file_path): file_index}
-                    
+
                     resolver = Resolver(indices)
                     result = resolver.resolve(selector)
-                    
+
                     if result.is_resolved():
                         node = result.exact_match
                         assert node is not None
-                        
+
                         # Show node content
                         _show_node(node, output_json, wrap=not nowrap, max_lines=max_lines, max_chars=max_chars)
                         return
-                    
+
                     # File was found but selector didn't resolve—error, don't fall back
                     click.echo(f"Error: Selector not found in {file_path}", err=True)
                     click.echo(f"\nTip: Use 'grafty index {file_path}' to see available nodes.", err=True)
@@ -370,7 +370,7 @@ def show(selector: str, max_lines: Optional[int], max_chars: Optional[int], outp
 
     node = result.exact_match
     assert node is not None
-    
+
     _show_node(node, output_json, wrap=not nowrap, max_lines=max_lines, max_chars=max_chars)
 
 
@@ -529,10 +529,107 @@ def insert(
         click.echo("Error: Must provide --text or --file", err=True)
         sys.exit(1)
 
-    # Insert command is Phase 5+ (future work)
-    # See ROADMAP.md for details
-    click.echo("insert command: Phase 5+ (future implementation)", err=True)
-    click.echo("See ROADMAP.md for Phase 5 features")
+    if text and file:
+        click.echo("Error: Can't specify both --text and --file", err=True)
+        sys.exit(1)
+
+    insert_text = text or Path(file).read_text(encoding="utf-8")
+
+    # Determine insertion mode
+    mode_flags = [before, after, inside_start, inside_end]
+    mode_count = sum(mode_flags)
+
+    if line is not None:
+        # Absolute line insertion — selector is ignored
+        if mode_count > 0:
+            click.echo(
+                "Error: --before/--after/--inside-start/--inside-end not valid with --line",
+                err=True,
+            )
+            sys.exit(1)
+
+        if not selector:
+            click.echo("Error: Must provide a file path as selector with --line", err=True)
+            sys.exit(1)
+
+        # selector is a file path for --line mode
+        file_path = selector if selector.startswith("/") else str(Path(repo_root) / selector)
+        indexer = Indexer()
+        indices = indexer.index_directory(repo_root)
+
+        if file_path not in indices:
+            # Try matching just the filename
+            matches = [p for p in indices if p.endswith(selector)]
+            if len(matches) == 1:
+                file_path = matches[0]
+            else:
+                click.echo(f"Error: File '{selector}' not found in index", err=True)
+                sys.exit(1)
+
+        file_index = indices[file_path]
+        editor = Editor(file_index)
+        editor.insert(text=insert_text, line=line)
+
+    elif selector:
+        # Selector-relative insertion
+        if mode_count == 0:
+            click.echo(
+                "Error: Must specify --before, --after, --inside-start, or --inside-end",
+                err=True,
+            )
+            sys.exit(1)
+        if mode_count > 1:
+            click.echo(
+                "Error: Only one position flag allowed",
+                err=True,
+            )
+            sys.exit(1)
+
+        if before:
+            position = "before"
+        elif after:
+            position = "after"
+        elif inside_start:
+            position = "inside-start"
+        else:
+            position = "inside-end"
+
+        indexer = Indexer()
+        indices = indexer.index_directory(repo_root)
+        resolver = Resolver(indices)
+        result = resolver.resolve(selector)
+
+        if not result.is_resolved():
+            if result.candidates:
+                click.echo("Ambiguous selector. Did you mean:", err=True)
+                for node in result.candidates[:5]:
+                    click.echo(f"  {node.path}:{node.kind}:{node.name}", err=True)
+            else:
+                error_msg = result.error or f"Selector '{selector}' did not resolve"
+                click.echo(f"Error: {error_msg}", err=True)
+            sys.exit(1)
+
+        node = result.exact_match
+        assert node is not None
+
+        file_index = indices[node.path]
+        editor = Editor(file_index)
+        editor.insert(text=insert_text, node=node, position=position)
+
+    else:
+        click.echo("Error: Must provide --line or a selector", err=True)
+        sys.exit(1)
+
+    patch = editor.generate_patch()
+    click.echo(patch)
+
+    if patch_out:
+        Path(patch_out).write_text(patch)
+        click.echo(f"Patch written to {patch_out}")
+
+    if not dry_run and apply:
+        editor.write(force=force, backup=backup)
+        click.echo("Applied insertion")
 
 
 @cli.command()

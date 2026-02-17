@@ -8,8 +8,9 @@ from .clojure_ts import ClojureParser
 from .javascript_ts import JavaScriptParser
 from .go_ts import GoParser
 from .rust_ts import RustParser
-from .html_parser import HTMLParser, HTMLNode
-from .css_parser import CSSParser, CSSNode
+from .html_parser import HTMLParser
+from .css_parser import CSSParser
+from .json_parser import JsonParser
 
 __all__ = [
     "PythonParser",
@@ -20,9 +21,8 @@ __all__ = [
     "GoParser",
     "RustParser",
     "HTMLParser",
-    "HTMLNode",
     "CSSParser",
-    "CSSNode",
+    "JsonParser",
 ]
 
 # File extension to parser mapping
@@ -36,7 +36,7 @@ PARSER_REGISTRY = {
     ".clj": ClojureParser,
     ".js": JavaScriptParser,
     ".go": GoParser,
-    ".rs": RustParser,
+    ".json": JsonParser,
 }
 
 

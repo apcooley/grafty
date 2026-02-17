@@ -23,6 +23,7 @@ grafty/parsers/css_parser.py
 grafty/parsers/go_ts.py
 grafty/parsers/html_parser.py
 grafty/parsers/javascript_ts.py
+grafty/parsers/json_parser.py
 grafty/parsers/markdown_ts.py
 grafty/parsers/org.py
 grafty/parsers/python_ts.py
@@ -33,6 +34,7 @@ tests/test_clojure_parser.py
 tests/test_css_parser.py
 tests/test_go_parser.py
 tests/test_html_parser.py
+tests/test_insert.py
 tests/test_javascript_parser.py
 tests/test_markdown_parser.py
 tests/test_markdown_parser_bugs.py
