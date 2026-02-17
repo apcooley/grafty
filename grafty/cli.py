@@ -17,6 +17,26 @@ from .utils import truncate_text
 from .multi_file_patch import PatchSet
 
 
+def _extract_file_from_selector(
+    selector: str, repo_root: str = "."
+) -> Optional[str]:
+    """Extract and resolve the file path from a selector like path:kind:name."""
+    parts = selector.split(":")
+    if len(parts) >= 2:
+        candidate = parts[0]
+    else:
+        candidate = selector
+    # Expand ~ and resolve
+    expanded = str(Path(candidate).expanduser().resolve())
+    if Path(expanded).is_file():
+        return expanded
+    # Try relative to repo_root
+    relative = str(Path(repo_root).resolve() / candidate)
+    if Path(relative).is_file():
+        return relative
+    return None
+
+
 def _print_human_readable(indices: dict) -> None:
     """Print index in human-readable format with smart column widths."""
     for file_path, idx in sorted(indices.items()):
@@ -553,20 +573,13 @@ def insert(
             sys.exit(1)
 
         # selector is a file path for --line mode
-        file_path = selector if selector.startswith("/") else str(Path(repo_root) / selector)
+        file_path = str(Path(selector).expanduser().resolve())
+        if not Path(file_path).exists():
+            click.echo(f"Error: File '{selector}' not found", err=True)
+            sys.exit(1)
+
         indexer = Indexer()
-        indices = indexer.index_directory(repo_root)
-
-        if file_path not in indices:
-            # Try matching just the filename
-            matches = [p for p in indices if p.endswith(selector)]
-            if len(matches) == 1:
-                file_path = matches[0]
-            else:
-                click.echo(f"Error: File '{selector}' not found in index", err=True)
-                sys.exit(1)
-
-        file_index = indices[file_path]
+        file_index = indexer.index_file(file_path)
         editor = Editor(file_index)
         editor.insert(text=insert_text, line=line)
 
@@ -594,8 +607,15 @@ def insert(
         else:
             position = "inside-end"
 
+        # Extract file path from selector (path:kind:name format)
+        selector_file = _extract_file_from_selector(selector, repo_root)
+
         indexer = Indexer()
-        indices = indexer.index_directory(repo_root)
+        if selector_file and Path(selector_file).exists():
+            indices = indexer.index_files([selector_file])
+        else:
+            indices = indexer.index_directory(repo_root)
+
         resolver = Resolver(indices)
         result = resolver.resolve(selector)
 
