@@ -22,6 +22,9 @@ dependencies = [
     "typing-extensions>=4.5.0",
     "tree-sitter-json>=0.24.8",
     "tree-sitter-clojure @ file:///${PROJECT_ROOT}/vendor/tree-sitter-clojure",
+    "tree-sitter-bash>=0.25.1",
+    "tree-sitter-java>=0.23.5",
+    "tree-sitter-typescript>=0.23.2",
 ]
 
 [project.optional-dependencies]

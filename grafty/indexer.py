@@ -17,6 +17,9 @@ from .parsers import (
     HTMLParser,
     CSSParser,
     JsonParser,
+    BashParser,
+    JavaParser,
+    TypeScriptParser,
 )
 
 
@@ -31,11 +34,14 @@ class Indexer:
             "clojure": ClojureParser(),
             "clojurescript": ClojureParser(),
             "javascript": JavaScriptParser(),
+            "typescript": TypeScriptParser(),
             "go": GoParser(),
             "rust": RustParser(),
             "html": HTMLParser(),
             "css": CSSParser(),
             "json": JsonParser(),
+            "bash": BashParser(),
+            "java": JavaParser(),
         }
 
     def index_file(self, file_path: str) -> FileIndex:

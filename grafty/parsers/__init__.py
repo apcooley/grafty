@@ -11,6 +11,9 @@ from .rust_ts import RustParser
 from .html_parser import HTMLParser
 from .css_parser import CSSParser
 from .json_parser import JsonParser
+from .bash_ts import BashParser
+from .java_ts import JavaParser
+from .typescript_ts import TypeScriptParser
 
 __all__ = [
     "PythonParser",
@@ -23,6 +26,9 @@ __all__ = [
     "HTMLParser",
     "CSSParser",
     "JsonParser",
+    "BashParser",
+    "JavaParser",
+    "TypeScriptParser",
 ]
 
 # File extension to parser mapping
@@ -34,9 +40,17 @@ PARSER_REGISTRY = {
     ".md": MarkdownParser,
     ".org": OrgParser,
     ".clj": ClojureParser,
+    ".cljs": ClojureParser,
     ".js": JavaScriptParser,
+    ".jsx": JavaScriptParser,
+    ".ts": TypeScriptParser,
+    ".tsx": TypeScriptParser,
     ".go": GoParser,
+    ".rs": RustParser,
     ".json": JsonParser,
+    ".sh": BashParser,
+    ".bash": BashParser,
+    ".java": JavaParser,
 }
 
 

@@ -74,15 +74,18 @@ def detect_file_type(path: str) -> Optional[str]:
         ".clj": "clojure",
         ".cljs": "clojurescript",
         ".js": "javascript",
-        ".ts": "javascript",
+        ".ts": "typescript",
         ".jsx": "javascript",
-        ".tsx": "javascript",
+        ".tsx": "typescript",
         ".go": "go",
         ".rs": "rust",
         ".html": "html",
         ".htm": "html",
         ".css": "css",
         ".json": "json",
+        ".sh": "bash",
+        ".bash": "bash",
+        ".java": "java",
     }
     return ext_to_kind.get(p.suffix)
 
@@ -93,7 +96,11 @@ def find_files(root: str, extensions: Optional[List[str]] = None) -> List[str]:
     If extensions is None, default to [.py, .md, .org, .clj, .cljs, .js, .ts, .go, .rs, .html, .htm, .css].
     """
     if extensions is None:
-        extensions = [".py", ".md", ".org", ".clj", ".cljs", ".js", ".ts", ".go", ".rs", ".html", ".htm", ".css", ".json"]
+        extensions = [
+            ".py", ".md", ".org", ".clj", ".cljs", ".js", ".jsx",
+            ".ts", ".tsx", ".go", ".rs", ".html", ".htm", ".css",
+            ".json", ".sh", ".bash", ".java",
+        ]
 
     root_path = Path(root)
     files = []
