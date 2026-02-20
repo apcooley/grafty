@@ -67,6 +67,9 @@ class ClojureParser:
             def_node = self._parse_def_form(node, file_path, content)
             if def_node:
                 nodes.append(def_node)
+                doc = self._extract_clj_docstring(node, file_path, def_node)
+                if doc:
+                    nodes.append(doc)
 
         # Also look for namespaces
         if node.type == "list_lit":
@@ -175,3 +178,36 @@ class ClojureParser:
             end_byte=node.end_byte,
             namespace=ns_name,
         )
+
+    def _extract_clj_docstring(
+        self,
+        ts_node,
+        file_path: str,
+        parent_node: Node,
+    ) -> Optional[Node]:
+        """Extract Clojure docstring (string after name in def forms)."""
+        # (defn name "docstring" [args] body)
+        # children[0]=defn, children[1]=name, children[2]=docstring?
+        children = [c for c in ts_node.children if c.type not in ("(", ")", " ")]
+        if len(children) >= 3 and children[2].type == "str_lit":
+            doc = children[2]
+            start_line = doc.start_point[0] + 1
+            end_line = doc.end_point[0] + 1
+            name = parent_node.name
+            node_id = Node.compute_id(
+                file_path, "clj_docstring", name, start_line,
+                parent_node.qualname,
+            )
+            return Node(
+                id=node_id,
+                kind="clj_docstring",
+                name=name,
+                path=file_path,
+                start_line=start_line,
+                end_line=end_line,
+                start_byte=doc.start_byte,
+                end_byte=doc.end_byte,
+                parent_id=parent_node.id,
+                qualname=parent_node.qualname,
+            )
+        return None

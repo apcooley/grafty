@@ -42,6 +42,14 @@ class ClojureFallbackParser:
                     if def_node:
                         nodes.append(def_node)
 
+                        # Extract docstring if present
+                        doc_node = self._extract_docstring(
+                            form_text, content, file_path,
+                            def_node, form_start,
+                        )
+                        if doc_node:
+                            nodes.append(doc_node)
+
                     i = form_end
                 else:
                     i += 1
@@ -157,3 +165,61 @@ class ClojureFallbackParser:
             node.namespace = name
 
         return node
+
+    def _extract_docstring(
+        self,
+        form_text: str,
+        content: str,
+        file_path: str,
+        parent_node: Node,
+        form_start: int,
+    ) -> Optional[Node]:
+        """Extract docstring from a def form if present."""
+        if parent_node.kind == "clj_ns":
+            return None
+
+        # Parse: (defn name "docstring" ...)
+        inner = form_text[1:-1].strip()
+        tokens = inner.split(None, 2)  # keyword, name, rest
+        if len(tokens) < 3:
+            return None
+
+        rest = tokens[2].strip()
+        if not rest.startswith('"'):
+            return None
+
+        # Find the closing quote of the docstring
+        i = 1
+        while i < len(rest):
+            if rest[i] == '\\':
+                i += 2
+                continue
+            if rest[i] == '"':
+                doc_text = rest[:i + 1]
+                # Find position in original content
+                doc_offset = content.find(doc_text, form_start)
+                if doc_offset == -1:
+                    return None
+
+                start_line = content[:doc_offset].count('\n') + 1
+                end_line = content[:doc_offset + len(doc_text)].count('\n') + 1
+
+                node_id = Node.compute_id(
+                    file_path, "clj_docstring",
+                    parent_node.name, start_line,
+                    parent_node.qualname,
+                )
+                return Node(
+                    id=node_id,
+                    kind="clj_docstring",
+                    name=parent_node.name,
+                    path=file_path,
+                    start_line=start_line,
+                    end_line=end_line,
+                    start_byte=doc_offset,
+                    end_byte=doc_offset + len(doc_text),
+                    parent_id=parent_node.id,
+                    qualname=parent_node.qualname,
+                )
+            i += 1
+        return None

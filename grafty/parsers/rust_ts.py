@@ -76,18 +76,22 @@ class RustParser:
                 )
 
         elif node.type == "struct_item":
-            # Struct definition: struct Foo { ... }
             struct_node = self._extract_struct(node, file_path, content)
             if struct_node:
                 nodes.append(struct_node)
                 nodes_dict[id(node)] = struct_node
+                doc = self._extract_doc_comment(node, file_path, struct_node)
+                if doc:
+                    nodes.append(doc)
 
         elif node.type == "trait_item":
-            # Trait definition: trait Foo { ... }
             trait_node = self._extract_trait(node, file_path, content)
             if trait_node:
                 nodes.append(trait_node)
                 nodes_dict[id(node)] = trait_node
+                doc = self._extract_doc_comment(node, file_path, trait_node)
+                if doc:
+                    nodes.append(doc)
 
         elif node.type == "impl_item":
             # Impl block: impl Foo { ... }
@@ -111,6 +115,11 @@ class RustParser:
                                 if method_node:
                                     nodes.append(method_node)
                                     impl_node.children_ids.append(method_node.id)
+                                    doc = self._extract_doc_comment(
+                                        stmt, file_path, method_node
+                                    )
+                                    if doc:
+                                        nodes.append(doc)
 
         elif node.type == "function_item":
             # Function definition: fn foo() { ... }
@@ -124,6 +133,9 @@ class RustParser:
             if func_node:
                 nodes.append(func_node)
                 nodes_dict[id(node)] = func_node
+                doc = self._extract_doc_comment(node, file_path, func_node)
+                if doc:
+                    nodes.append(doc)
 
         elif node.type == "macro_definition":
             # Macro definition: macro_rules! my_macro { ... }
@@ -351,4 +363,44 @@ class RustParser:
             end_byte=node.end_byte,
             parent_id=None,
             is_method=False,
+        )
+
+    def _extract_doc_comment(
+        self,
+        ts_node,
+        file_path: str,
+        parent_node: Node,
+    ) -> Optional[Node]:
+        """Extract Rust doc comments (/// or //!) preceding a declaration."""
+        comments = []
+        prev = ts_node.prev_named_sibling
+        while prev and prev.type == "line_comment":
+            text = prev.text.decode("utf-8")
+            if text.startswith("///") or text.startswith("//!"):
+                comments.insert(0, prev)
+                prev = prev.prev_named_sibling
+            else:
+                break
+
+        if not comments:
+            return None
+
+        start_line = comments[0].start_point[0] + 1
+        end_line = comments[-1].end_point[0] + 1
+        name = parent_node.name
+        node_id = Node.compute_id(
+            file_path, "rs_doc", name, start_line,
+            parent_node.qualname,
+        )
+        return Node(
+            id=node_id,
+            kind="rs_doc",
+            name=name,
+            path=file_path,
+            start_line=start_line,
+            end_line=end_line,
+            start_byte=comments[0].start_byte,
+            end_byte=comments[-1].end_byte,
+            parent_id=parent_node.id,
+            qualname=parent_node.qualname,
         )

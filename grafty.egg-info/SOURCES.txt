@@ -32,6 +32,7 @@ grafty/vcs/__init__.py
 grafty/vcs/git_integration.py
 tests/test_clojure_parser.py
 tests/test_css_parser.py
+tests/test_docstrings.py
 tests/test_go_parser.py
 tests/test_html_parser.py
 tests/test_insert.py

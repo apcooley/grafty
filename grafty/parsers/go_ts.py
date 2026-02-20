@@ -73,21 +73,28 @@ class GoParser:
             pass  # Could extract as go_package node if needed
 
         elif node.type == "function_declaration":
-            # Function definition: func foo() { ... }
             func_node = self._extract_function(node, file_path, content)
             if func_node:
                 nodes.append(func_node)
+                doc = self._extract_doc_comment(node, file_path, func_node)
+                if doc:
+                    nodes.append(doc)
 
         elif node.type == "method_declaration":
-            # Method definition: func (r *Receiver) Method() { ... }
             method_node = self._extract_method(node, file_path, content)
             if method_node:
                 nodes.append(method_node)
+                doc = self._extract_doc_comment(node, file_path, method_node)
+                if doc:
+                    nodes.append(doc)
 
         elif node.type == "type_declaration":
-            # Type declarations: type Foo struct { ... }
             type_nodes = self._extract_type(node, file_path, content)
             nodes.extend(type_nodes)
+            if type_nodes:
+                doc = self._extract_doc_comment(node, file_path, type_nodes[0])
+                if doc:
+                    nodes.append(doc)
 
         # Recurse into children
         for child in node.children:
@@ -227,3 +234,40 @@ class GoParser:
         nodes.append(type_node)
 
         return nodes
+
+    def _extract_doc_comment(
+        self,
+        ts_node,
+        file_path: str,
+        parent_node: Node,
+    ) -> Optional[Node]:
+        """Extract Go doc comment (consecutive // lines before declaration)."""
+        # Walk backwards through previous siblings collecting comment nodes
+        comments = []
+        prev = ts_node.prev_named_sibling
+        while prev and prev.type == "comment":
+            comments.insert(0, prev)
+            prev = prev.prev_named_sibling
+
+        if not comments:
+            return None
+
+        start_line = comments[0].start_point[0] + 1
+        end_line = comments[-1].end_point[0] + 1
+        name = parent_node.name
+        node_id = Node.compute_id(
+            file_path, "go_doc", name, start_line,
+            parent_node.qualname,
+        )
+        return Node(
+            id=node_id,
+            kind="go_doc",
+            name=name,
+            path=file_path,
+            start_line=start_line,
+            end_line=end_line,
+            start_byte=comments[0].start_byte,
+            end_byte=comments[-1].end_byte,
+            parent_id=parent_node.id,
+            qualname=parent_node.qualname,
+        )

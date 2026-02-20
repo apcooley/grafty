@@ -62,6 +62,28 @@ class PythonParser:
         """Recursively walk Tree-sitter AST, extracting definitions."""
 
         if node.type == "module":
+            # Check for module-level docstring
+            stmts = [c for c in node.children if c.type not in ("\n", "comment")]
+            if stmts and stmts[0].type == "expression_statement":
+                for sub in stmts[0].children:
+                    if sub.type == "string":
+                        start_line = stmts[0].start_point[0] + 1
+                        end_line = stmts[0].end_point[0] + 1
+                        node_id = Node.compute_id(
+                            file_path, "py_docstring", "__module__", start_line
+                        )
+                        nodes.append(Node(
+                            id=node_id,
+                            kind="py_docstring",
+                            name="__module__",
+                            path=file_path,
+                            start_line=start_line,
+                            end_line=end_line,
+                            start_byte=stmts[0].start_byte,
+                            end_byte=stmts[0].end_byte,
+                        ))
+                        break
+
             # Top-level; process children
             for child in node.children:
                 self._walk_tree(
@@ -86,6 +108,13 @@ class PythonParser:
             if class_node:
                 nodes.append(class_node)
                 nodes_dict[id(node)] = class_node
+
+                # Extract docstring if present
+                doc_node = self._extract_docstring(
+                    node, file_path, class_node
+                )
+                if doc_node:
+                    nodes.append(doc_node)
 
                 # Recurse into class body
                 for child in node.children:
@@ -114,6 +143,13 @@ class PythonParser:
             if func_node:
                 nodes.append(func_node)
                 nodes_dict[id(node)] = func_node
+
+                # Extract docstring if present
+                doc_node = self._extract_docstring(
+                    node, file_path, func_node
+                )
+                if doc_node:
+                    nodes.append(doc_node)
 
         elif node.type == "decorated_definition":
             # @decorator + def/class
@@ -215,3 +251,39 @@ class PythonParser:
             qualname=qualname,
             is_method=is_method,
         )
+
+    def _extract_docstring(
+        self,
+        ts_node,
+        file_path: str,
+        parent_node: Node,
+    ) -> Optional[Node]:
+        """Extract docstring from a function/class definition's body block."""
+        for child in ts_node.children:
+            if child.type == "block":
+                stmts = [c for c in child.children if c.type not in ("\n", "comment")]
+                if stmts and stmts[0].type == "expression_statement":
+                    for sub in stmts[0].children:
+                        if sub.type == "string":
+                            start_line = stmts[0].start_point[0] + 1
+                            end_line = stmts[0].end_point[0] + 1
+                            name = parent_node.name
+                            qualname = parent_node.qualname
+                            node_id = Node.compute_id(
+                                file_path, "py_docstring", name,
+                                start_line, qualname,
+                            )
+                            return Node(
+                                id=node_id,
+                                kind="py_docstring",
+                                name=name,
+                                path=file_path,
+                                start_line=start_line,
+                                end_line=end_line,
+                                start_byte=stmts[0].start_byte,
+                                end_byte=stmts[0].end_byte,
+                                parent_id=parent_node.id,
+                                qualname=qualname,
+                            )
+                break
+        return None

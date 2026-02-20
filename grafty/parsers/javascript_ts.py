@@ -88,6 +88,11 @@ class JavaScriptParser:
                 nodes.append(class_node)
                 nodes_dict[id(node)] = class_node
 
+                # Check for JSDoc comment
+                jsdoc = self._extract_jsdoc(node, file_path, class_node)
+                if jsdoc:
+                    nodes.append(jsdoc)
+
                 # Recurse into class body for methods
                 for child in node.children:
                     if child.type == "class_body":
@@ -104,6 +109,12 @@ class JavaScriptParser:
                                     nodes.append(method_node)
                                     class_node.children_ids.append(method_node.id)
 
+                                    jsdoc = self._extract_jsdoc(
+                                        stmt, file_path, method_node
+                                    )
+                                    if jsdoc:
+                                        nodes.append(jsdoc)
+
         elif node.type == "function_declaration":
             # Function definition
             func_node = self._extract_function(
@@ -116,6 +127,11 @@ class JavaScriptParser:
             if func_node:
                 nodes.append(func_node)
                 nodes_dict[id(node)] = func_node
+
+                # Check for JSDoc comment
+                jsdoc = self._extract_jsdoc(node, file_path, func_node)
+                if jsdoc:
+                    nodes.append(jsdoc)
 
         elif node.type == "export_statement":
             # export function foo() { ... } or export class Bar { ... }
@@ -247,3 +263,35 @@ class JavaScriptParser:
             qualname=qualname,
             is_method=True,
         )
+
+    def _extract_jsdoc(
+        self,
+        ts_node,
+        file_path: str,
+        parent_node: Node,
+    ) -> Optional[Node]:
+        """Extract JSDoc comment (/** ... */) preceding a declaration."""
+        prev = ts_node.prev_named_sibling
+        if prev and prev.type == "comment":
+            text = prev.text.decode("utf-8")
+            if text.startswith("/**"):
+                start_line = prev.start_point[0] + 1
+                end_line = prev.end_point[0] + 1
+                name = parent_node.name
+                node_id = Node.compute_id(
+                    file_path, "js_jsdoc", name, start_line,
+                    parent_node.qualname,
+                )
+                return Node(
+                    id=node_id,
+                    kind="js_jsdoc",
+                    name=name,
+                    path=file_path,
+                    start_line=start_line,
+                    end_line=end_line,
+                    start_byte=prev.start_byte,
+                    end_byte=prev.end_byte,
+                    parent_id=parent_node.id,
+                    qualname=parent_node.qualname,
+                )
+        return None

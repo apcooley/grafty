@@ -39,7 +39,7 @@ class TestPythonParser:
         nodes = parser.parse_file(str(python_file))
 
         # Find method
-        method_nodes = [n for n in nodes if n.name == "method_one"]
+        method_nodes = [n for n in nodes if n.name == "method_one" and n.kind == "py_method"]
         assert len(method_nodes) == 1
 
         method_node = method_nodes[0]
