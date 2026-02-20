@@ -11,6 +11,7 @@ Treat docstrings and documentation comments as first-class editable nodes, so us
 | `js_jsdoc` | JS/TS | `/** ... */` comment preceding a function/class | `comment` node (starting with `/**`) immediately before declaration |
 | `go_doc` | Go | `//` comment block preceding a function/type | Consecutive `comment` nodes immediately before declaration |
 | `rs_doc` | Rust | `///` or `//!` doc comments | `line_comment` nodes starting with `///` or `//!` before declaration |
+| `clj_docstring` | Clojure | String after name in `defn`/`def` | String literal as 3rd element in def form (after name, before args) |
 
 ## Design Decisions
 
@@ -98,13 +99,32 @@ Rust uses `///` (outer doc) and `//!` (inner doc). Check previous siblings for `
 
 **Tests:** 5-6 tests
 
-### Step 5: Integration & CLI
+### Step 5: Clojure Docstrings (~1 hour)
+**File:** `grafty/parsers/clojure_ts.py` and `grafty/parsers/clojure_fallback.py`
+
+Clojure docstrings are the string literal between the name and the argument vector in `defn`/`def` forms:
+```clojure
+(defn hello
+  "This is the docstring"
+  [name]
+  (str "Hello " name))
+```
+
+In the Tree-sitter AST, look for a `str_lit` node as the child after the symbol name. In the fallback parser, scan for a `"` after the name token.
+
+**Tests:** 4-5 tests
+- defn with docstring
+- def with docstring
+- defn without docstring → no node
+- Multi-line Clojure docstring
+
+### Step 6: Integration & CLI
 - Verify `grafty index`, `grafty show`, `grafty replace`, `grafty insert`, `grafty delete` all work with docstring selectors
 - No CLI changes needed — existing selector resolution handles new node kinds automatically
 - Update `grafty search` to support `--kind py_docstring` etc.
 
 ## Test Count Estimate
-~25-30 new tests, targeting 235+ total.
+~30-35 new tests, targeting 240+ total.
 
 ## Backward Compatibility
 ✅ Fully backward compatible:
@@ -114,7 +134,7 @@ Rust uses `///` (outer doc) and `//!` (inner doc). Check previous siblings for `
 - `py_function:hello` still returns the full function (including docstring)
 
 ## Effort Estimate
-~8 hours total across all 4 languages + tests.
+~9 hours total across all 5 languages + tests.
 
 ## Out of Scope
 - Docstring formatting/linting
