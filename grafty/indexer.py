@@ -20,6 +20,9 @@ from .parsers import (
     BashParser,
     JavaParser,
     TypeScriptParser,
+    CSharpParser,
+    KotlinParser,
+    SwiftParser,
 )
 
 
@@ -42,6 +45,9 @@ class Indexer:
             "json": JsonParser(),
             "bash": BashParser(),
             "java": JavaParser(),
+            "csharp": CSharpParser(),
+            "kotlin": KotlinParser(),
+            "swift": SwiftParser(),
         }
 
     def index_file(self, file_path: str) -> FileIndex:

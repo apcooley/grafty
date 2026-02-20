@@ -86,6 +86,10 @@ def detect_file_type(path: str) -> Optional[str]:
         ".sh": "bash",
         ".bash": "bash",
         ".java": "java",
+        ".cs": "csharp",
+        ".kt": "kotlin",
+        ".kts": "kotlin",
+        ".swift": "swift",
     }
     return ext_to_kind.get(p.suffix)
 
@@ -100,6 +104,7 @@ def find_files(root: str, extensions: Optional[List[str]] = None) -> List[str]:
             ".py", ".md", ".org", ".clj", ".cljs", ".js", ".jsx",
             ".ts", ".tsx", ".go", ".rs", ".html", ".htm", ".css",
             ".json", ".sh", ".bash", ".java",
+            ".cs", ".kt", ".kts", ".swift",
         ]
 
     root_path = Path(root)

@@ -14,6 +14,9 @@ from .json_parser import JsonParser
 from .bash_ts import BashParser
 from .java_ts import JavaParser
 from .typescript_ts import TypeScriptParser
+from .csharp_ts import CSharpParser
+from .kotlin_ts import KotlinParser
+from .swift_ts import SwiftParser
 
 __all__ = [
     "PythonParser",
@@ -29,6 +32,9 @@ __all__ = [
     "BashParser",
     "JavaParser",
     "TypeScriptParser",
+    "CSharpParser",
+    "KotlinParser",
+    "SwiftParser",
 ]
 
 # File extension to parser mapping
@@ -51,6 +57,10 @@ PARSER_REGISTRY = {
     ".sh": BashParser,
     ".bash": BashParser,
     ".java": JavaParser,
+    ".cs": CSharpParser,
+    ".kt": KotlinParser,
+    ".kts": KotlinParser,
+    ".swift": SwiftParser,
 }
 
 
