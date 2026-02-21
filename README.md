@@ -207,13 +207,18 @@ grafty show "src/main.py:py_method:parse"
 
 | Language | What You Can Edit | Example |
 |----------|-------------------|---------|
-| **Python** (.py) | Classes, methods, functions, standalone code | `file.py:py_function:parse_config` |
-| **JavaScript/TypeScript** (.js, .ts, .jsx, .tsx) | Functions, classes, methods, arrow functions | `app.ts:js_function:handler` |
-| **Go** (.go) | Functions, methods, types, structs | `main.go:go_function:main` |
-| **Rust** (.rs) | Functions, structs, impls, traits, macros | `lib.rs:rs_struct:DataProcessor` |
+| **Python** (.py) | Classes, methods, functions, docstrings | `file.py:py_function:parse_config`<br>`file.py:py_docstring:parse_config` |
+| **JavaScript** (.js, .jsx) | Functions, classes, methods, JSDoc | `app.js:js_function:handler`<br>`app.js:js_jsdoc:handler` |
+| **TypeScript** (.ts, .tsx) | Functions, classes, methods, interfaces, types, enums, TSDoc | `app.ts:ts_interface:Config`<br>`app.ts:ts_doc:handler` |
+| **Go** (.go) | Functions, methods, types, structs, doc comments | `main.go:go_function:main`<br>`main.go:go_doc:main` |
+| **Rust** (.rs) | Functions, structs, impls, traits, macros, doc comments | `lib.rs:rs_struct:DataProcessor`<br>`lib.rs:rs_doc:process` |
+| **Bash** (.sh, .bash) | Functions, doc comments | `deploy.sh:bash_function:backup_db`<br>`deploy.sh:bash_doc:backup_db` |
+| **Java** (.java) | Classes, interfaces, enums, methods, constructors, Javadoc | `Service.java:java_method:authenticate`<br>`Service.java:java_doc:authenticate` |
 | **Markdown** (.md) | Headings, sections, intro paragraphs | `README.md:md_heading:Installation` |
 | **Org-mode** (.org) | Headings, subtrees, intro paragraphs | `tasks.org:org_heading:Phase 1` |
-| **Clojure** (.clj/.cljs) | Namespaces, defs, macros | `core.clj:clj_defn:my_func` |
+| **Clojure** (.clj/.cljs) | Namespaces, defs, macros, docstrings | `core.clj:clj_defn:my_func`<br>`core.clj:clj_docstring:my_func` |
+| **HTML** (.html, .htm) | Elements, IDs, classes, attributes | `index.html:html_id:main`<br>`page.html:html_class:container` |
+| **CSS** (.css) | Rules, selectors | `style.css:css_rule:.container`<br>`theme.css:css_selector:nav ul li` |
 
 ### 🎯 Core Features
 
@@ -234,6 +239,35 @@ grafty show "src/main.py:42-50"     # Range of lines
 grafty replace "README.md:md_heading_preamble:Installation" \
   --text "# Installation\n\nNew intro here." \
   --apply
+```
+
+**Documentation Extraction** — Read/update docs independently from code (Python, JS/TS, Go, Rust, Clojure, Java, Bash)  
+```bash
+# Show only the docstring, not implementation
+grafty show "validators.py:py_docstring:validate_email"
+
+# Update JSDoc without touching code
+grafty replace "api.ts:ts_doc:handleRequest" \
+  --text "/**\n * Handles HTTP requests.\n * @param req Request\n */" \
+  --apply
+
+# Find all undocumented functions (search returns empty for missing docstrings)
+grafty search "*" --kind "py_function" --json | \
+  jq -r '.[] | select(.name as $n | (grafty search $n --kind "py_docstring" --json | length) == 0)'
+```
+
+**Insert Command** — Programmatically add code at precise locations  
+```bash
+# Insert at specific line
+grafty insert "app.py" --line 42 --text "# TODO: refactor" --apply
+
+# Insert method at end of class
+grafty insert "models.py:py_class:User" --inside-end \
+  --text "    def validate(self): pass" --apply
+
+# Insert import before first function
+grafty insert "utils.py:py_function:main" --before \
+  --text "import logging" --apply
 ```
 
 **Pattern Search** — Find nodes by name pattern  

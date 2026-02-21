@@ -84,6 +84,162 @@ for rule in rules:
 
 ---
 
+## [0.8.0] - 2026-02-21
+
+### 🎯 Phase 4.3: Multi-Language Documentation Extraction
+
+**Problem**: Code documentation (docstrings, JSDoc, Javadoc, doc comments) are critical for understanding code, but grafty had no way to extract or manipulate them independently. LLM agents need to read/update documentation without touching implementation.
+
+**Solution**:
+- Added documentation extraction across 5 languages
+- New node types for language-specific documentation conventions
+- Documentation nodes named after their parent (e.g., `py_docstring:hello` for function `hello`)
+- Module-level docstrings use special name `__module__`
+
+**Implementation**:
+
+#### Python Docstrings (`py_docstring`)
+- Extracts docstrings from functions, classes, methods, and modules
+- Supports all Python docstring styles (single-line, multi-line, triple-quoted)
+- Module docstrings named `py_docstring:__module__`
+
+#### JavaScript/TypeScript JSDoc (`js_jsdoc`)
+- Extracts `/** ... */` comments before functions, classes, methods
+- Detects JSDoc by checking `prev_named_sibling` for `comment` nodes starting with `/**`
+- Works with both JavaScript and TypeScript parsers
+
+#### Go Documentation Comments (`go_doc`)
+- Extracts `//` comment blocks before function/method/type declarations
+- Walks backwards through consecutive `comment` siblings
+- Follows Go convention of doc comments directly preceding declarations
+
+#### Rust Documentation Comments (`rs_doc`)
+- Extracts `///` and `//!` documentation comments
+- Walks backwards through consecutive `line_comment` siblings
+- Supports both outer (`///`) and inner (`//!`) doc comments
+
+#### Clojure Docstrings (`clj_docstring`)
+- Extracts string literals after function name in `defn`, `defmacro`, etc.
+- Works with both tree-sitter-clojure and fallback regex parser
+- Handles multi-line docstrings
+
+**Node Naming Convention**:
+```bash
+# Docstrings named after their parent
+grafty show "app.py:py_docstring:validate_email"  # Docstring of validate_email function
+grafty show "lib.rs:rs_doc:parse_config"          # Doc comment of parse_config function
+grafty show "main.py:py_docstring:__module__"     # Module-level docstring
+```
+
+**Tests** (`tests/test_docstrings.py`):
+- 25 new tests covering all 5 languages
+- Module-level, function-level, class-level, method-level documentation
+- Edge cases: missing docstrings, malformed syntax, multi-line comments
+
+**Examples**:
+```bash
+# Show only the docstring, not the implementation
+grafty show "validators.py:py_docstring:validate_email"
+
+# Update JSDoc without touching code
+grafty replace "api.ts:js_jsdoc:handleRequest" \
+  --text "/**\n * Handles HTTP requests with rate limiting.\n * @param req - Request object\n */" \
+  --apply
+
+# Search for all documented functions
+grafty search "*" --kind "py_docstring" --json
+```
+
+---
+
+### 🚀 Insert Command Implementation
+
+**Problem**: `grafty insert` was stubbed as "Phase 5+ future" but users needed it for programmatic code generation.
+
+**Solution**: Fully implemented `grafty insert` with 5 insertion modes:
+
+**Modes**:
+- `--line N` — Insert at specific line number
+- `--before <selector>` — Insert before a structural node
+- `--after <selector>` — Insert after a structural node  
+- `--inside-start <selector>` — Insert at start of node content
+- `--inside-end <selector>` — Insert at end of node content
+
+**Performance Optimization**:
+- When selector contains a file path, indexes only that file (not entire directory)
+- Uses new `_extract_file_from_selector()` helper to avoid scanning home directory
+- Dramatically faster for single-file operations
+
+**Tests** (`tests/test_insert.py`):
+- 10 comprehensive tests covering all 5 modes
+- Edge cases: empty files, whitespace handling, boundary conditions
+
+**Examples**:
+```bash
+# Insert at line 42
+grafty insert "src/app.py" --line 42 --text "# TODO: refactor" --apply
+
+# Insert method at end of class
+grafty insert "src/models.py:py_class:User" --inside-end \
+  --text "    def validate(self):\n        pass" --apply
+
+# Insert import before first function
+grafty insert "src/utils.py:py_function:first_func" --before \
+  --text "import logging" --apply
+```
+
+---
+
+### 📦 New Language Parsers: Bash, Java, TypeScript
+
+**Problem**: grafty supported 7 languages but missing common ones: shell scripts, Java, TypeScript.
+
+**Solution**: Added three new tree-sitter-based parsers with full structural extraction.
+
+#### Bash Parser (`grafty/parsers/bash_ts.py`)
+- **Node types**: `bash_function` (shell functions), `bash_doc` (doc comments)
+- **Extensions**: `.sh`, `.bash`
+- Extracts function definitions and `#` comment blocks
+- Tree-sitter grammar: `tree-sitter-bash`
+
+#### Java Parser (`grafty/parsers/java_ts.py`)
+- **Node types**: `java_class`, `java_interface`, `java_enum`, `java_method`, `java_constructor`, `java_doc` (Javadoc)
+- **Extension**: `.java`
+- Extracts classes, interfaces, enums, methods, constructors
+- Javadoc detection: `/** ... */` comments before declarations
+- Tree-sitter grammar: `tree-sitter-java`
+
+#### TypeScript Parser (`grafty/parsers/typescript_ts.py`)
+- **Node types**: `ts_function`, `ts_class`, `ts_method`, `ts_interface`, `ts_type`, `ts_enum`, `ts_doc` (TSDoc)
+- **Extensions**: `.ts`, `.tsx`
+- Extracts functions, classes, methods, interfaces, type aliases, enums
+- TSDoc detection: `/** ... */` comments before declarations
+- Tree-sitter grammar: `tree-sitter-typescript`
+
+**Registry Updates** (`grafty/parsers/__init__.py`):
+- Registered all three parsers with their extensions
+- Added to `PARSER_REGISTRY` for automatic file type detection
+
+**Examples**:
+```bash
+# Bash
+grafty show "deploy.sh:bash_function:backup_db"
+
+# Java  
+grafty show "UserService.java:java_method:authenticate"
+grafty show "UserService.java:java_doc:authenticate"  # Javadoc only
+
+# TypeScript
+grafty show "app.ts:ts_interface:Config"
+grafty show "utils.ts:ts_doc:parseJson"  # TSDoc only
+```
+
+**Total Supported Languages**: 10 (Python, JavaScript, TypeScript, Go, Rust, Markdown, Org, Clojure, Bash, Java, HTML, CSS)
+
+**Test Coverage**: 236 tests passing (25 docstring + 10 insert + 201 prior)
+
+---
+
 ## [0.6.0] - 2026-02-08
 
 ### 🎯 Phase 4.2: VCS Integration (Git)
